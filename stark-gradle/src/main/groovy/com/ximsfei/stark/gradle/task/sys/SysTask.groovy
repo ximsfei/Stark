@@ -208,6 +208,7 @@ import com.android.build.gradle.AppExtension
 import com.android.build.gradle.api.ApkVariant
 import com.android.build.gradle.internal.api.ApkVariantImpl
 import com.ximsfei.stark.gradle.StarkExtension
+import com.ximsfei.stark.gradle.util.Plog
 import org.gradle.api.Project
 import org.gradle.api.Task
 
@@ -231,6 +232,7 @@ abstract class SysTask<T extends Task> {
             beforeExecute()
         }
         task.doLast {
+            Plog.q "$task.name doLast"
             afterExecute()
         }
     }
