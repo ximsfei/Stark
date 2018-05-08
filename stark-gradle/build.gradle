@@ -9,3 +9,19 @@ dependencies {
     compileOnly gradleApi()
     compileOnly 'com.android.tools.build:gradle:3.1.2'
 }
+
+apply plugin: 'maven'
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: "file:///Users/ximsfei/local/repo")
+            pom.project {
+                groupId "com.ximsfei.stark"
+                artifactId "gradle"
+                version "1.0.0"
+            }
+
+        }
+    }
+}

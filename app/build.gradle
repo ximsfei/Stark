@@ -1,4 +1,25 @@
+buildscript {
+
+    repositories {
+        maven {
+            url "file:///Users/ximsfei/local/repo"
+        }
+    }
+    dependencies {
+        classpath 'com.ximsfei.stark:gradle:1.0.0'
+
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
 apply plugin: 'com.android.application'
+apply plugin: 'com.ximsfei.stark'
+
+stark {
+    autoBackup = false
+}
 
 android {
     compileSdkVersion 27

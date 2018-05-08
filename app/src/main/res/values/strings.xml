@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Stark</string>
+    <string name="fix_text">Error Text</string>
 </resources>
