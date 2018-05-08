@@ -78,7 +78,7 @@ class Aapt {
                 def line = it as String
                 while (matcher.find()) {
                     String idStr = idStrMaps.get(matcher.group(1))
-                    Plog.q "match ${matcher.group(1)}:idStr $idStr"
+//                    Plog.q "match ${matcher.group(1)}:idStr $idStr"
                     if (idStr != null) {
                         line = line.replaceAll(matcher.group(1), idStr)
                     }

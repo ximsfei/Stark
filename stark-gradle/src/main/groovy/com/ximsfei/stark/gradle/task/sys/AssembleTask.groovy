@@ -204,21 +204,20 @@
  */
 package com.ximsfei.stark.gradle.task.sys
 
-import com.android.build.gradle.AppExtension
 import com.android.build.gradle.api.ApkVariant
-import com.ximsfei.stark.gradle.StarkExtension
+import com.ximsfei.stark.gradle.scope.StarkVariantScope
+import com.ximsfei.stark.gradle.task.TaskManager
 import org.gradle.api.DefaultTask
-import org.gradle.api.Project
 
 class AssembleTask extends SysTask<DefaultTask> {
 
-    AssembleTask(Project project, AppExtension android, StarkExtension stark, ApkVariant apkVariant) {
-        super(project, android, stark, apkVariant)
+    AssembleTask(TaskManager manager, ApkVariant variant, StarkVariantScope starkScope) {
+        super(manager, variant, starkScope)
     }
 
     @Override
     protected DefaultTask getTask() {
-        return apkVariant.variantData.scope.assembleTask
+        variant.assemble
     }
 
     @Override
@@ -228,8 +227,11 @@ class AssembleTask extends SysTask<DefaultTask> {
 
     @Override
     void afterExecute() {
+        if (isGeneratePatch) {
+            return
+        }
         if (stark.autoBackup) {
-
+            manager.doBackup(variant, starkScope)
         }
     }
 }

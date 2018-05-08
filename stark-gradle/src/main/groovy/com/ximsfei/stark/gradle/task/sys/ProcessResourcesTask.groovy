@@ -208,13 +208,14 @@ import com.android.build.gradle.AppExtension
 import com.android.build.gradle.api.ApkVariant
 import com.android.build.gradle.tasks.ProcessAndroidResources
 import com.android.sdklib.BuildToolInfo
-import com.ximsfei.stark.gradle.StarkExtension
 import com.ximsfei.stark.gradle.aapt.Aapt
 import com.ximsfei.stark.gradle.aapt.SymbolParser
+import com.ximsfei.stark.gradle.exception.StarkException
+import com.ximsfei.stark.gradle.scope.StarkVariantScope
+import com.ximsfei.stark.gradle.task.TaskManager
 import com.ximsfei.stark.gradle.util.Plog
 import com.ximsfei.stark.gradle.util.ZipUtils
 import groovy.io.FileType
-import org.gradle.api.Project
 import org.gradle.api.file.FileTree
 
 class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
@@ -231,13 +232,13 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
     private def gAllTypes = []
     private def gAllStyleables = []
 
-    ProcessResourcesTask(Project project, AppExtension android, StarkExtension stark, ApkVariant apkVariant) {
-        super(project, android, stark, apkVariant)
+    ProcessResourcesTask(TaskManager manager, ApkVariant variant, StarkVariantScope starkScope) {
+        super(manager, variant, starkScope)
     }
 
     @Override
     protected ProcessAndroidResources getTask() {
-        return apkVariant.variantData.scope.processResourcesTask
+        variant.variantData.scope.processResourcesTask
     }
 
     @Override
@@ -247,13 +248,32 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
 
     @Override
     void afterExecute() {
-        hookAapt(android, task)
+        if (isGeneratePatch) {
+            def publicTxtFile = starkScope.getBackupPublicTxt()
+            if (!publicTxtFile.exists() || publicTxtFile.getText() == "") {
+                throw new StarkException("To generate patch, public.txt not exists!")
+            }
+            hookAapt(android, task, publicTxtFile)
+        } else {
+            def publicTxtFile = starkScope.getStarkBuildPublicTxtFile()
+            if (!publicTxtFile.exists()) {
+                publicTxtFile.createNewFile()
+            }
+            def publicPw = new PrintWriter(publicTxtFile.newWriter(false))
+            task.textSymbolOutputFile.readLines().each { line ->
+                if (!line.startsWith("int[] styleable") && !line.startsWith("int styleable")) {
+                    publicPw.println(line)
+                }
+            }
+            publicPw.flush()
+            publicPw.close()
+        }
     }
 
     /**
      * Hook aapt task to slice asset package and resolve library resource ids
      */
-    private def hookAapt(AppExtension android, ProcessAndroidResources aaptTask) {
+    def hookAapt(AppExtension android, ProcessAndroidResources aaptTask, File publicTxtFile) {
         // Unpack resources.ap_
         File apFile
         // R.txt
@@ -261,27 +281,26 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
         // R.java
         List<File> rJavaFileList = []
         // public.txt
-        File publicTxtFile = new File(project.rootDir, "public.txt")
         Plog.q "public text file: $publicTxtFile"
         aaptTask.outputs.files.each { file ->
             if (file.directory) {
                 file.eachFileRecurse(FileType.FILES) {
                     if (it.absolutePath.endsWith(File.separator + "R.java")) {
-                        Plog.q("R.java: $it")
+//                        Plog.q("R.java: $it")
                         rJavaFileList.add(it)
                     } else if (it.absolutePath.endsWith(File.separator + "R.txt")) {
-                        Plog.q("R.txt: $it")
+//                        Plog.q("R.txt: $it")
                         rTxtFile = it
                     } else if (it.absolutePath.endsWith(".ap_")) {
-                        Plog.q("resources-*.ap_: $it")
+//                        Plog.q("resources-*.ap_: $it")
                         apFile = it
                     }
                 }
             } else if (file.absolutePath.endsWith(File.separator + "R.txt")) {
-                Plog.q("R.txt: $file")
+//                Plog.q("R.txt: $file")
                 rTxtFile = file
             } else if (file.absolutePath.endsWith(".ap_")) {
-                Plog.q("resources-*.ap_: $file")
+//                Plog.q("resources-*.ap_: $file")
                 apFile = file
             }
         }
@@ -474,11 +493,11 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
         // Reassign resource type id (_typeId) and entry id (_entryId)
         def lastEntryIds = [:]
         if (retainedEntries.size() > 0) {
-            if (retainedEntries[0].type != 'attr') {
-                // reserved for `attr'
-                if (maxPublicTypeId == 0) maxPublicTypeId = 1
-                if (unusedTypeIds.size() > 0) unusedTypeIds.poll()
-            }
+//            if (retainedEntries[0].type != 'attr') {
+//                // reserved for `attr'
+//                if (maxPublicTypeId == 0) maxPublicTypeId = 1
+//                if (unusedTypeIds.size() > 0) unusedTypeIds.poll()
+//            }
             def selfTypes = [:]
             retainedEntries.each { e ->
                 // Check if the type has been declared in public.txt

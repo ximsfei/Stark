@@ -209,15 +209,19 @@ import com.android.build.gradle.api.ApkVariant
 import com.android.build.gradle.internal.api.ApkVariantImpl
 import com.ximsfei.stark.gradle.StarkConstants
 import com.ximsfei.stark.gradle.StarkExtension
+import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.sys.AssembleTask
 import com.ximsfei.stark.gradle.task.sys.GenerateStarkConfigTask
 import com.ximsfei.stark.gradle.task.sys.ProcessResourcesTask
+import com.ximsfei.stark.gradle.util.Plog
+import org.apache.commons.io.FileUtils
 import org.gradle.api.Project
 
 class TaskManager {
-    private Project project
-    private AppExtension android
-    private StarkExtension stark
+    Project project
+    AppExtension android
+    StarkExtension stark
+    boolean isGeneratePatch
 
     TaskManager(Project project, AppExtension android, StarkExtension stark) {
         this.project = project
@@ -226,39 +230,52 @@ class TaskManager {
     }
 
     void configTasks() {
+        for (name in project.gradle.startParameter.taskNames) {
+            Plog.q "task name = $name"
+            if (name.contains(StarkConstants.TASK_GENERATE_PATCH)) {
+                isGeneratePatch = true
+                break
+            }
+        }
         project.afterEvaluate {
             android.applicationVariants.all { ApkVariantImpl variant ->
-                configSysTasks(variant)
-                configStarkTasks(variant)
+                def starkScope = new StarkVariantScope(project, variant, isGeneratePatch)
+                configSysTasks(starkScope, variant)
+                configStarkTasks(starkScope, variant)
             }
         }
     }
 
-    private void configSysTasks(ApkVariant variant) {
-        new GenerateStarkConfigTask(project, android, stark, variant).config()
-        new ProcessResourcesTask(project, android, stark, variant).config()
-        new AssembleTask(project, android, stark, variant).config()
+    private void configSysTasks(StarkVariantScope starkScope, ApkVariant variant) {
+        def generateStarkConfig = new GenerateStarkConfigTask(this, variant, starkScope)
+        generateStarkConfig.config()
+        starkScope.generateStarkConfig = generateStarkConfig
+
+        def processResources = new ProcessResourcesTask(this, variant, starkScope)
+        processResources.config()
+        starkScope.processResources = processResources
+
+        def assemble = new AssembleTask(this, variant, starkScope)
+        assemble.config()
+        starkScope.assemble = assemble
     }
 
-    private void configStarkTasks(ApkVariantImpl variant) {
+    private void configStarkTasks(StarkVariantScope starkScope, ApkVariantImpl variant) {
         def scope = variant.variantData.scope
         def backupTask = project.task(scope.getTaskName(StarkConstants.TASK_BACKUP))
         backupTask.group = StarkConstants.TASKS_GROUP
         backupTask.doLast {
-            doBackup(variant)
+            doBackup(variant, starkScope)
         }
-        def patchTask = project.task(scope.getTaskName(StarkConstants.TASK_PATCH))
+        def patchTask = project.task(scope.getTaskName(StarkConstants.TASK_GENERATE_PATCH))
         patchTask.group = StarkConstants.TASKS_GROUP
+        patchTask.dependsOn(scope.assembleTask)
     }
 
-    private void doBackup(ApkVariantImpl variant) {
-        def backupDir = new File(project.getProjectDir(), StarkConstants.STARK_BACKUP_DIR)
-        if (!backupDir.exists()) {
-            backupDir.mkdirs()
+    void doBackup(ApkVariantImpl variant, StarkVariantScope starkScope) {
+        if (isGeneratePatch) {
+            return
         }
-        def versionCodeDir = new File(backupDir, variant.versionCode)
-        if (!versionCodeDir.exists()) {
-            versionCodeDir.mkdirs()
-        }
+        FileUtils.copyDirectory(starkScope.getStarkBuildDir(), starkScope.getBackupDir())
     }
 }

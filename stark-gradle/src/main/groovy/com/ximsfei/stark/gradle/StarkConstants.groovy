@@ -209,7 +209,12 @@ class StarkConstants {
     static final String TASKS_GROUP = "stark"
 
     static final String TASK_BACKUP = TASKS_PREFIX + "Backup"
-    static final String TASK_PATCH = TASKS_PREFIX + "Patch"
+    static final String TASK_GENERATE_PATCH = TASKS_PREFIX + "GeneratePatch"
 
-    static final String STARK_BACKUP_DIR = "stark-backup"
+    static final String STARK_DIR = "stark"
+    static final String STARK_BACKUP_DIR = "backup"
+    static final String STARK_BUILD_HASH_FILE = "build-hash"
+    static final String STARK_PUBLIC_TXT_FILE = "public.txt"
+
+    static final String STARK_CORE_PACKAGE_NAME = "com.ximsfei.stark.core"
 }

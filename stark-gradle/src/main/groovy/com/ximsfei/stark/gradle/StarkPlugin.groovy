@@ -209,6 +209,9 @@ import com.ximsfei.stark.gradle.task.TaskManager
 import com.ximsfei.stark.gradle.util.Plog
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.Task
+import org.gradle.api.execution.TaskExecutionListener
+import org.gradle.api.tasks.TaskState
 
 class StarkPlugin implements Plugin<Project> {
 
@@ -220,6 +223,17 @@ class StarkPlugin implements Plugin<Project> {
         if (android instanceof AppExtension) {
             TaskManager taskManager = new TaskManager(project, android, stark)
             taskManager.configTasks()
+            project.gradle.addListener(new TaskExecutionListener() {
+                @Override
+                void beforeExecute(Task task) {
+                    Plog.q "task $task.name"
+                }
+
+                @Override
+                void afterExecute(Task task, TaskState taskState) {
+
+                }
+            })
         }
     }
 }

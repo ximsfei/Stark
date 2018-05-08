@@ -15,6 +15,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.ximsfei.stark.core.StarkConfig;
+
 import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
@@ -83,6 +85,8 @@ public class MainActivity extends AppCompatActivity {
         });
         TextView content = findViewById(R.id.content);
         content.setText("fix text: " + getResources().getString(R.string.fix_text));
+        StarkConfig.init(this);
         Log.e("recreate", "btn text = " + recreate.getText());
+        Log.e("recreate", "BUILD_HASH = " + StarkConfig.BUILD_HASH);
     }
 }

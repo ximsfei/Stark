@@ -13,7 +13,7 @@
         android:text="ReCreate Fix"
         android:textAllCaps="false" />
 
-    <Button
+    <TextView
         android:id="@+id/content"
         android:textAllCaps="false"
         android:layout_width="match_parent"

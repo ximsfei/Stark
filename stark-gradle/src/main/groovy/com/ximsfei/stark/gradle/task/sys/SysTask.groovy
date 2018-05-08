@@ -208,22 +208,29 @@ import com.android.build.gradle.AppExtension
 import com.android.build.gradle.api.ApkVariant
 import com.android.build.gradle.internal.api.ApkVariantImpl
 import com.ximsfei.stark.gradle.StarkExtension
-import com.ximsfei.stark.gradle.util.Plog
+import com.ximsfei.stark.gradle.scope.StarkVariantScope
+import com.ximsfei.stark.gradle.task.TaskManager
 import org.gradle.api.Project
 import org.gradle.api.Task
 
 abstract class SysTask<T extends Task> {
+    protected TaskManager manager
+    protected StarkVariantScope starkScope
     protected Project project
     protected AppExtension android
     protected StarkExtension stark
-    protected ApkVariantImpl apkVariant
+    protected ApkVariantImpl variant
+    protected boolean isGeneratePatch
     protected T task
 
-    SysTask(Project project, AppExtension android, StarkExtension stark, ApkVariant apkVariant) {
-        this.project = project
-        this.android = android
-        this.stark = stark
-        this.apkVariant = apkVariant
+    SysTask(TaskManager manager, ApkVariant variant, StarkVariantScope starkScope) {
+        this.manager = manager
+        this.project = manager.project
+        this.android = manager.android
+        this.stark = manager.stark
+        this.isGeneratePatch = manager.isGeneratePatch
+        this.starkScope = starkScope
+        this.variant = variant
         this.task = getTask()
     }
 
@@ -232,7 +239,7 @@ abstract class SysTask<T extends Task> {
             beforeExecute()
         }
         task.doLast {
-            Plog.q "$task.name doLast"
+//            Plog.q "$task.name doLast"
             afterExecute()
         }
     }
