@@ -1,5 +1,6 @@
 package com.ximsfei.stark.app;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
@@ -8,7 +9,6 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -19,7 +19,7 @@ import com.ximsfei.stark.core.StarkConfig;
 
 import java.io.File;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
     @Override
     protected void attachBaseContext(Context newBase) {
         final Context finalNewBase = newBase;

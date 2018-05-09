@@ -1,5 +1,6 @@
 package com.ximsfei.stark.app;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.pm.ApplicationInfo;
@@ -8,7 +9,6 @@ import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -16,7 +16,7 @@ import android.widget.TextView;
 
 import java.io.File;
 
-public class SecondActivity extends AppCompatActivity {
+public class SecondActivity extends Activity {
     @Override
     protected void attachBaseContext(Context newBase) {
         final Context finalNewBase = newBase;
