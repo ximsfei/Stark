@@ -415,12 +415,14 @@ class HashMethodNode {
                         /**
                          * The type of {@link LineNumberNode} "instructions".
                          */
+                        /*
                         methodBuilder.append(insn.type)
                         methodBuilder.append(insn.opcode)
                         methodBuilder.append(((LineNumberNode) insn).line)
                         methodBuilder.append(((LineNumberNode) insn).start.type)
                         methodBuilder.append(((LineNumberNode) insn).start.opcode)
                         methodBuilder.append(((LineNumberNode) insn).start.label.info)
+                         */
                         break
                 }
                 insn = insn.next
