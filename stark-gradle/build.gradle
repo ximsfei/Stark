@@ -8,6 +8,11 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     compileOnly gradleApi()
     compileOnly 'com.android.tools.build:gradle:3.1.2'
+//    implementation 'org.ow2.asm:asm:6.1.1'
+//    implementation 'org.ow2.asm:asm-analysis:6.1.1'
+//    implementation 'org.ow2.asm:asm-commons:6.1.1'
+//    implementation 'org.ow2.asm:asm-tree:6.1.1'
+//    implementation 'org.ow2.asm:asm-util:6.1.1'
 }
 
 apply plugin: 'maven'

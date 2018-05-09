@@ -202,116 +202,35 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.gradle.scope
+package com.ximsfei.stark.gradle.task.sys
 
 import com.android.build.gradle.api.ApkVariant
+import com.android.build.gradle.internal.pipeline.TransformTask
 import com.ximsfei.stark.gradle.StarkConstants
-import com.ximsfei.stark.gradle.exception.StarkException
-import com.ximsfei.stark.gradle.task.sys.AssembleTask
-import com.ximsfei.stark.gradle.task.sys.GenerateStarkConfigTask
-import com.ximsfei.stark.gradle.task.sys.ProcessResourcesTask
-import com.ximsfei.stark.gradle.util.Plog
-import org.gradle.api.Project
+import com.ximsfei.stark.gradle.scope.GlobalScope
+import com.ximsfei.stark.gradle.scope.StarkVariantScope
+import com.ximsfei.stark.gradle.task.TaskManager
 
-class StarkVariantScope {
-    Project project
-    ApkVariant variant
-    GenerateStarkConfigTask generateStarkConfig
-    ProcessResourcesTask processResources
-    AssembleTask assemble
-    private String buildHash
+class TransformStarkTask extends SysTask<TransformTask> {
 
-    StarkVariantScope(Project project, ApkVariant variant) {
-        this.project = project
-        this.variant = variant
+    TransformStarkTask(TaskManager manager, ApkVariant variant, StarkVariantScope starkScope) {
+        super(manager, variant, starkScope)
     }
 
-    def getBuildHash() {
-        if (buildHash == null || buildHash == "") {
-            if (GlobalScope.isGeneratePatch) {
-                def buildHashFile = getBackupHashFile()
-                if (buildHashFile.exists()) {
-                    buildHash = buildHashFile.getText().trim()
-                    if (buildHash == null || buildHash == "") {
-                        throw new StarkException("To generate patch, build hash cannot empty!")
-                    }
-                } else {
-                    throw new StarkException("To generate patch, build hash file not exists!")
-                }
-            } else {
-                buildHash = UUID.randomUUID()
-            }
-            Plog.q "${project.name} ${variant.buildType.name} build hash $buildHash"
-        }
-        buildHash
+    @Override
+    protected TransformTask getTask() {
+        project.getTasksByName("transformClassesWith"
+                + StarkConstants.TRANSFORM_STARK_NAME.capitalize()
+                + "For" + variant.buildType.name.capitalize(), false).first()
     }
 
-    def getStarkBuildDir() {
-        def starkDir = new File(project.getBuildDir(), StarkConstants.STARK_DIR)
-        def buildTypeDir = new File(starkDir, variant.buildType.name)
-        if (!buildTypeDir.exists()) {
-            buildTypeDir.mkdirs()
-        }
-        buildTypeDir
+    @Override
+    void beforeExecute() {
+        GlobalScope.currentTransformStarkScope = starkScope
     }
 
-    def getStarkBuildMonitorDir() {
-        def monitorDir = new File(getStarkBuildDir(), StarkConstants.STARK_MONITOR_DIR)
-        if (!monitorDir.exists()) {
-            monitorDir.mkdirs()
-        }
-        monitorDir
-    }
-
-    def getStarkBuildMonitorClassFile() {
-        new File(getStarkBuildMonitorDir(), StarkConstants.STARK_MONITOR_CLASS)
-    }
-
-    def getStarkBuildMonitorMethodFile(String className) {
-        new File(getStarkBuildMonitorDir(), className)
-    }
-
-    def getStarkBuildHashFile() {
-        new File(getStarkBuildDir(), StarkConstants.STARK_BUILD_HASH_FILE)
-    }
-
-    def getStarkBuildPublicTxtFile() {
-        new File(getStarkBuildDir(), StarkConstants.STARK_PUBLIC_TXT_FILE)
-    }
-
-    File getBackupDir() {
-        def starkDir = new File(project.getProjectDir(), StarkConstants.STARK_DIR)
-        def appDir = new File(starkDir, variant.applicationId)
-        def versionCodeDir = new File(appDir, String.valueOf(variant.versionCode))
-        def backupDir = new File(versionCodeDir, StarkConstants.STARK_BACKUP_DIR)
-        def buildTypeDir = new File(backupDir, variant.buildType.name)
-        if (!buildTypeDir.exists()) {
-            buildTypeDir.mkdirs()
-        }
-        buildTypeDir
-    }
-
-    def getBackupMonitorDir() {
-        def monitorDir = new File(getBackupDir(), StarkConstants.STARK_MONITOR_DIR)
-        if (!monitorDir.exists()) {
-            monitorDir.mkdirs()
-        }
-        monitorDir
-    }
-
-    def getBackupMonitorClassFile() {
-        new File(getBackupMonitorDir(), StarkConstants.STARK_MONITOR_CLASS)
-    }
-
-    def getBackupMonitorMethodFile(String className) {
-        new File(getBackupMonitorDir(), className)
-    }
-
-    File getBackupHashFile() {
-        new File(getBackupDir(), StarkConstants.STARK_BUILD_HASH_FILE)
-    }
-
-    File getBackupPublicTxt() {
-        new File(getBackupDir(), StarkConstants.STARK_PUBLIC_TXT_FILE)
+    @Override
+    void afterExecute() {
+        GlobalScope.currentTransformStarkScope = null
     }
 }

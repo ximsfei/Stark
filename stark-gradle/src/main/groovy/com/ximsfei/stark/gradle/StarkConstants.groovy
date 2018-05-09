@@ -211,8 +211,12 @@ class StarkConstants {
     static final String TASK_BACKUP = TASKS_PREFIX + "Backup"
     static final String TASK_GENERATE_PATCH = TASKS_PREFIX + "GeneratePatch"
 
+    static final String TRANSFORM_STARK_NAME = "stark"
+
     static final String STARK_DIR = "stark"
     static final String STARK_BACKUP_DIR = "backup"
+    static final String STARK_MONITOR_DIR = "monitor"
+    static final String STARK_MONITOR_CLASS = "monitor-class"
     static final String STARK_BUILD_HASH_FILE = "build-hash"
     static final String STARK_PUBLIC_TXT_FILE = "public.txt"
 

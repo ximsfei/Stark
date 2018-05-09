@@ -208,6 +208,7 @@ import com.android.build.gradle.AppExtension
 import com.android.build.gradle.api.ApkVariant
 import com.android.build.gradle.tasks.ProcessAndroidResources
 import com.android.sdklib.BuildToolInfo
+import com.ximsfei.stark.gradle.scope.GlobalScope
 import com.ximsfei.stark.gradle.aapt.Aapt
 import com.ximsfei.stark.gradle.aapt.SymbolParser
 import com.ximsfei.stark.gradle.exception.StarkException
@@ -248,7 +249,7 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
 
     @Override
     void afterExecute() {
-        if (isGeneratePatch) {
+        if (GlobalScope.isGeneratePatch) {
             def publicTxtFile = starkScope.getBackupPublicTxt()
             if (!publicTxtFile.exists() || publicTxtFile.getText() == "") {
                 throw new StarkException("To generate patch, public.txt not exists!")

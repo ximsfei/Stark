@@ -220,7 +220,6 @@ abstract class SysTask<T extends Task> {
     protected AppExtension android
     protected StarkExtension stark
     protected ApkVariantImpl variant
-    protected boolean isGeneratePatch
     protected T task
 
     SysTask(TaskManager manager, ApkVariant variant, StarkVariantScope starkScope) {
@@ -228,7 +227,6 @@ abstract class SysTask<T extends Task> {
         this.project = manager.project
         this.android = manager.android
         this.stark = manager.stark
-        this.isGeneratePatch = manager.isGeneratePatch
         this.starkScope = starkScope
         this.variant = variant
         this.task = getTask()

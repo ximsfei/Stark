@@ -205,7 +205,9 @@
 package com.ximsfei.stark.gradle
 
 import com.android.build.gradle.AppExtension
+import com.ximsfei.stark.gradle.scope.GlobalScope
 import com.ximsfei.stark.gradle.task.TaskManager
+import com.ximsfei.stark.gradle.transforms.StarkTransform
 import com.ximsfei.stark.gradle.util.Plog
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -220,20 +222,30 @@ class StarkPlugin implements Plugin<Project> {
         def android = project.extensions.getByName("android")
         def stark = project.extensions.create("stark", StarkExtension)
         Plog.logger = project.logger
+
+        for (name in project.gradle.startParameter.taskNames) {
+            if (name.contains(StarkConstants.TASK_GENERATE_PATCH)) {
+                Plog.q "task name = $name"
+                GlobalScope.isGeneratePatch = true
+                break
+            }
+        }
         if (android instanceof AppExtension) {
+            android.registerTransform(new StarkTransform())
+            android.transforms
             TaskManager taskManager = new TaskManager(project, android, stark)
             taskManager.configTasks()
-            project.gradle.addListener(new TaskExecutionListener() {
-                @Override
-                void beforeExecute(Task task) {
-                    Plog.q "task $task.name"
-                }
-
-                @Override
-                void afterExecute(Task task, TaskState taskState) {
-
-                }
-            })
+//            project.gradle.addListener(new TaskExecutionListener() {
+//                @Override
+//                void beforeExecute(Task task) {
+//                    Plog.q "task $task.name"
+//                }
+//
+//                @Override
+//                void afterExecute(Task task, TaskState taskState) {
+//
+//                }
+//            })
         }
     }
 }

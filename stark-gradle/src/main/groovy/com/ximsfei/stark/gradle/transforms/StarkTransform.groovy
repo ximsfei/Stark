@@ -202,8 +202,212 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.gradle.transfroms
+package com.ximsfei.stark.gradle.transforms
 
-class StarkTransfrom {
+import com.android.SdkConstants
+import com.android.build.api.transform.Format
+import com.android.build.api.transform.QualifiedContent
+import com.android.build.api.transform.Transform
+import com.android.build.api.transform.TransformException
+import com.android.build.api.transform.TransformInvocation
+import com.android.build.api.transform.TransformOutputProvider
+import com.android.build.gradle.internal.pipeline.TransformManager
+import com.ximsfei.stark.gradle.StarkConstants
+import com.ximsfei.stark.gradle.asm.monitor.AsmClassNode
+import com.ximsfei.stark.gradle.asm.monitor.HashMethodNode
+import com.ximsfei.stark.gradle.asm.monitor.MonitorVisitor
+import com.ximsfei.stark.gradle.exception.StarkException
+import com.ximsfei.stark.gradle.scope.GlobalScope
+import com.ximsfei.stark.gradle.util.Plog
+import groovy.io.FileType
+import org.apache.commons.io.FileUtils
+import org.gradle.internal.hash.HashUtil
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.tree.MethodNode
 
+class StarkTransform extends Transform {
+
+    @Override
+    String getName() {
+        StarkConstants.TRANSFORM_STARK_NAME
+    }
+
+    @Override
+    Set<QualifiedContent.ContentType> getInputTypes() {
+        TransformManager.CONTENT_CLASS
+    }
+
+    @Override
+    Set<? super QualifiedContent.Scope> getScopes() {
+        TransformManager.SCOPE_FULL_PROJECT
+    }
+
+    @Override
+    boolean isIncremental() {
+        false
+    }
+
+    @Override
+    void transform(TransformInvocation invocation) throws TransformException, InterruptedException, IOException {
+        TransformOutputProvider outputProvider = invocation.getOutputProvider()
+        if (outputProvider == null) {
+            throw new IllegalStateException("StarkTransform called with null output")
+        }
+        if (GlobalScope.isGeneratePatch) {
+            doPatch(invocation)
+        } else {
+            doMonitor(invocation)
+            doInject(invocation)
+        }
+    }
+
+    /**
+     * 根据Hash值，提取被修改的Method
+     * @param invocation
+     */
+    void doPatch(TransformInvocation invocation) {
+        def outputProvider = invocation.outputProvider
+        def starkScope = GlobalScope.currentTransformStarkScope
+        if (starkScope == null) {
+            // do nothing
+            Plog.q "Current stark scope is null. Do nothing."
+        }
+        invocation.inputs.each { input ->
+            input.directoryInputs.each {
+                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.DIRECTORY)
+                FileUtils.copyDirectory(it.file, dest)
+                if (starkScope == null) {
+                    return
+                }
+                def backupClassFile = starkScope.getBackupMonitorClassFile()
+                if (!backupClassFile.exists()) {
+                    throw new StarkException("Backup class file: $backupClassFile.absolutePath is not exists.")
+                }
+                Map<String, String> backupClassHashMap = [:]
+                backupClassFile.eachLine { line ->
+                    def splits = line.split("->")
+                    if (splits.length == 2) {
+                        backupClassHashMap.put(splits[0], splits[1])
+                    }
+                }
+                dest.eachFileRecurse(FileType.FILES) { file ->
+                    if (file.name.endsWith(SdkConstants.DOT_CLASS)) {
+                        ClassReader classReader = new ClassReader(file.bytes)
+                        String className = classReader.className.replace(File.separator, ".")
+                        String classHash = HashUtil.sha256(file.bytes).asHexString()
+                        Plog.q "classReader = " + className
+                        if (backupClassHashMap.get(className) == classHash) {
+                            return
+                        }
+                        AsmClassNode classNode = MonitorVisitor.instrumentClass(file)
+                        if (classNode == null) {
+                            Plog.q "$className class node is empty."
+                            return
+                        }
+                        if (classNode.classNode.methods.empty) {
+                            Plog.q "$className methods is empty."
+                            return
+                        }
+                        def backupMethodFile = starkScope.getBackupMonitorMethodFile(className)
+                        Map<String, String> backupMethodHashMap = [:]
+                        backupMethodFile.eachLine { line ->
+                            def splits = line.split("->")
+                            if (splits.length == 2) {
+                                backupMethodHashMap.put(splits[0], splits[1])
+                            }
+                        }
+                        classNode.classNode.methods.each { MethodNode methodNode ->
+                            String methodName = methodNode.name + methodNode.desc
+                            String methodHash = HashMethodNode.generateMethodHashCode(methodNode)
+                            if (backupMethodHashMap.get(methodName) != methodHash) {
+                                Plog.q "$methodName method is changed."
+                            }
+                        }
+                    }
+                }
+            }
+            input.jarInputs.each {
+                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.JAR)
+                FileUtils.copyFile(it.file, dest)
+            }
+        }
+    }
+
+    /**
+     * 记录所有Class和Method的Hash值
+     * @param invocation
+     */
+    void doMonitor(TransformInvocation invocation) {
+        def outputProvider = invocation.outputProvider
+        def starkScope = GlobalScope.currentTransformStarkScope
+        if (starkScope == null) {
+            // do nothing
+            Plog.q "Current stark scope is null. Do nothing."
+        }
+        def monitorClassFile = starkScope.getStarkBuildMonitorClassFile()
+        monitorClassFile.createNewFile()
+        invocation.inputs.each { input ->
+            input.directoryInputs.each {
+                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.DIRECTORY)
+                FileUtils.copyDirectory(it.file, dest)
+                if (starkScope == null) {
+                    return
+                }
+                dest.eachFileRecurse(FileType.FILES) { file ->
+                    if (file.name.endsWith(SdkConstants.DOT_CLASS)) {
+                        ClassReader classReader = new ClassReader(file.bytes)
+                        String className = classReader.className.replace(File.separator, ".")
+                        Plog.q "classReader = " + className
+                        monitorClassFile.append(className)
+                        monitorClassFile.append("->")
+                        monitorClassFile.append(HashUtil.sha256(file.bytes).asHexString())
+                        monitorClassFile.append("\n")
+                        AsmClassNode classNode = MonitorVisitor.instrumentClass(file)
+                        if (classNode == null) {
+                            Plog.q "$className class node is empty."
+                            return
+                        }
+                        if (classNode.classNode.methods.empty) {
+                            Plog.q "$className methods is empty."
+                            return
+                        }
+                        def monitorMethodFile = starkScope.getStarkBuildMonitorMethodFile(className)
+                        monitorMethodFile.createNewFile()
+                        classNode.classNode.methods.each { MethodNode methodNode ->
+                            monitorMethodFile.append(methodNode.name)
+                            monitorMethodFile.append(methodNode.desc)
+                            monitorMethodFile.append("->")
+                            monitorMethodFile.append(HashMethodNode.generateMethodHashCode(methodNode))
+                            monitorMethodFile.append("\n")
+                        }
+                    }
+                }
+            }
+            input.jarInputs.each {
+                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.JAR)
+                FileUtils.copyFile(it.file, dest)
+                if (starkScope == null) {
+                    return
+                }
+            }
+        }
+    }
+    /**
+     * Method Redirection, Resources Redirection.
+     *
+     * @param invocation
+     */
+    void doInject(TransformInvocation invocation) {
+        def outputProvider = invocation.outputProvider
+        invocation.inputs.each { input ->
+            input.directoryInputs.each {
+//                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.DIRECTORY)
+//                FileUtils.copyDirectory(it.file, dest)
+            }
+            input.jarInputs.each {
+//                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.JAR)
+//                FileUtils.copyFile(it.file, dest)
+            }
+        }
+    }
 }

@@ -205,6 +205,7 @@
 package com.ximsfei.stark.gradle.task.sys
 
 import com.android.build.gradle.api.ApkVariant
+import com.ximsfei.stark.gradle.scope.GlobalScope
 import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.TaskManager
 import org.gradle.api.DefaultTask
@@ -227,7 +228,7 @@ class AssembleTask extends SysTask<DefaultTask> {
 
     @Override
     void afterExecute() {
-        if (isGeneratePatch) {
+        if (GlobalScope.isGeneratePatch) {
             return
         }
         if (stark.autoBackup) {
