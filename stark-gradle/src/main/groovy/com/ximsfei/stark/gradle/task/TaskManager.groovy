@@ -272,6 +272,7 @@ class TaskManager {
         if (GlobalScope.isGeneratePatch) {
             return
         }
+        FileUtils.deleteDirectory(starkScope.getBackupDir())
         FileUtils.copyDirectory(starkScope.getStarkBuildDir(), starkScope.getBackupDir())
     }
 }

@@ -204,6 +204,7 @@
  */
 package com.ximsfei.stark.gradle.asm.monitor
 
+import com.ximsfei.stark.gradle.util.Plog
 import org.gradle.internal.hash.HashUtil
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.FieldInsnNode
@@ -314,7 +315,7 @@ class HashMethodNode {
                         methodBuilder.append(((InvokeDynamicInsnNode) insn).bsm.owner)
                         methodBuilder.append(((InvokeDynamicInsnNode) insn).bsm.name)
                         methodBuilder.append(((InvokeDynamicInsnNode) insn).bsm.desc)
-                        methodBuilder.append(((InvokeDynamicInsnNode) insn).bsm.itf)
+//                        methodBuilder.append(((InvokeDynamicInsnNode) insn).bsm.itf)
                         for (def o : ((InvokeDynamicInsnNode) insn).bsmArgs) {
                             methodBuilder.append(o)
                         }
@@ -327,7 +328,7 @@ class HashMethodNode {
                         methodBuilder.append(insn.opcode)
                         methodBuilder.append(((JumpInsnNode) insn).label.type)
                         methodBuilder.append(((JumpInsnNode) insn).label.opcode)
-                        methodBuilder.append(((JumpInsnNode) insn).label.label.info)
+//                        methodBuilder.append(((JumpInsnNode) insn).label.label.info)
                         break
                     case AbstractInsnNode.LABEL:
                         /**
@@ -335,7 +336,7 @@ class HashMethodNode {
                          */
                         methodBuilder.append(insn.type)
                         methodBuilder.append(insn.opcode)
-                        methodBuilder.append(((LabelNode) insn).label.info)
+//                        methodBuilder.append(((LabelNode) insn).label.info)
                         break
                     case AbstractInsnNode.LDC_INSN:
                         /**
@@ -364,11 +365,11 @@ class HashMethodNode {
                         methodBuilder.append(((TableSwitchInsnNode) insn).max)
                         methodBuilder.append(((TableSwitchInsnNode) insn).dflt.type)
                         methodBuilder.append(((TableSwitchInsnNode) insn).dflt.opcode)
-                        methodBuilder.append(((TableSwitchInsnNode) insn).dflt.label.info)
+//                        methodBuilder.append(((TableSwitchInsnNode) insn).dflt.label.info)
                         for (LabelNode labelNode : ((TableSwitchInsnNode) insn).labels) {
                             methodBuilder.append(labelNode.type)
                             methodBuilder.append(labelNode.opcode)
-                            methodBuilder.append(labelNode.label.info)
+//                            methodBuilder.append(labelNode.label.info)
                         }
                         break
                     case AbstractInsnNode.LOOKUPSWITCH_INSN:
@@ -379,14 +380,14 @@ class HashMethodNode {
                         methodBuilder.append(insn.opcode)
                         methodBuilder.append(((LookupSwitchInsnNode) insn).dflt.type)
                         methodBuilder.append(((LookupSwitchInsnNode) insn).dflt.opcode)
-                        methodBuilder.append(((LookupSwitchInsnNode) insn).dflt.label.info)
+//                        methodBuilder.append(((LookupSwitchInsnNode) insn).dflt.label.info)
                         for (Integer key : ((LookupSwitchInsnNode) insn).keys) {
                             methodBuilder.append(key)
                         }
                         for (LabelNode labelNode : ((LookupSwitchInsnNode) insn).labels) {
                             methodBuilder.append(labelNode.type)
                             methodBuilder.append(labelNode.opcode)
-                            methodBuilder.append(labelNode.label.info)
+//                            methodBuilder.append(labelNode.label.info)
                         }
                         break
                     case AbstractInsnNode.MULTIANEWARRAY_INSN:
@@ -455,6 +456,7 @@ class HashMethodNode {
             methodBuilder.append(methodNode.maxStack)
             methodBuilder.append(methodNode.maxLocals)
         }
+        Plog.q "method build: ${methodBuilder.toString()}"
         HashUtil.sha256(methodBuilder.toString().bytes).asHexString()
     }
 }

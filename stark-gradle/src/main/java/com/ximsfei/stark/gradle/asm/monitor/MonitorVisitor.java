@@ -202,26 +202,34 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.gradle.asm.monitor
+package com.ximsfei.stark.gradle.asm.monitor;
 
-import com.android.SdkConstants
-import com.android.annotations.NonNull
-import com.android.annotations.Nullable
-import com.android.utils.FileUtils
-import com.google.common.io.Files
-import org.objectweb.asm.ClassReader
-import org.objectweb.asm.ClassVisitor
-import org.objectweb.asm.ClassWriter
-import org.objectweb.asm.Opcodes
-import org.objectweb.asm.Type
-import org.objectweb.asm.tree.ClassNode
-import org.objectweb.asm.tree.FieldNode
-import org.objectweb.asm.tree.MethodNode
+import com.android.SdkConstants;
+import com.android.annotations.NonNull;
+import com.android.annotations.Nullable;
+import com.google.common.io.Files;
 
-import java.util.function.Function
-import java.util.function.Predicate
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldNode;
+import org.objectweb.asm.tree.MethodNode;
 
-class MonitorVisitor extends ClassVisitor {
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+
+public class MonitorVisitor extends ClassVisitor {
+    public static final String RUNTIME_PACKAGE = "com/ximsfei/stark/core/runtime";
+    public static final Type CHANGE_TYPE = Type.getObjectType(RUNTIME_PACKAGE + "/IncrementalChange");
+    protected static final Type INSTANT_RELOAD_EXCEPTION =
+            Type.getObjectType(RUNTIME_PACKAGE + "/InstantReloadException");
+
+    protected String visitedClassName;
+    protected String visitedSuperName;
     @NonNull
     protected final AsmClassNode classAndInterfaceNode;
 
@@ -229,276 +237,309 @@ class MonitorVisitor extends ClassVisitor {
      * Enumeration describing a method of field access rights.
      */
     protected enum AccessRight {
-        PRIVATE, PACKAGE_PRIVATE, PROTECTED, PUBLIC
+        PRIVATE, PACKAGE_PRIVATE, PROTECTED, PUBLIC;
 
         @NonNull
         static AccessRight fromNodeAccess(int nodeAccess) {
-            if ((nodeAccess & Opcodes.ACC_PRIVATE) != 0) return PRIVATE
-            if ((nodeAccess & Opcodes.ACC_PROTECTED) != 0) return PROTECTED
-            if ((nodeAccess & Opcodes.ACC_PUBLIC) != 0) return PUBLIC
-            return PACKAGE_PRIVATE
+            if ((nodeAccess & Opcodes.ACC_PRIVATE) != 0) return PRIVATE;
+            if ((nodeAccess & Opcodes.ACC_PROTECTED) != 0) return PROTECTED;
+            if ((nodeAccess & Opcodes.ACC_PUBLIC) != 0) return PUBLIC;
+            return PACKAGE_PRIVATE;
         }
     }
 
-    private MonitorVisitor(
+    MonitorVisitor(
             @NonNull AsmClassNode classAndInterfaceNode, @NonNull ClassVisitor classVisitor) {
-        super(Opcodes.ASM5, classVisitor)
-        this.classAndInterfaceNode = classAndInterfaceNode
+        super(Opcodes.ASM5, classVisitor);
+        this.classAndInterfaceNode = classAndInterfaceNode;
     }
 
     @NonNull
     protected static String getRuntimeTypeName(@NonNull Type type) {
-        return "L" + type.getInternalName() + ""
+        return "L" + type.getInternalName() + "";
     }
 
     @Nullable
     AccessRight getFieldAccessRightByName(@NonNull String fieldName) {
-        FieldNode fieldNode = getFieldByNameInClass(fieldName, classAndInterfaceNode)
-        fieldNode != null ? AccessRight.fromNodeAccess(fieldNode.access) : null
+        FieldNode fieldNode = getFieldByNameInClass(fieldName, classAndInterfaceNode);
+        return fieldNode != null ? AccessRight.fromNodeAccess(fieldNode.access) : null;
     }
 
     @Nullable
     protected static FieldNode getFieldByNameInClass(
             @NonNull String fieldName, @NonNull AsmClassNode classAndInterfaceNode) {
-        return classAndInterfaceNode.onHierarchy(new Function<ClassNode, FieldNode>() {
-            @Override
-            FieldNode apply(ClassNode classNode) {
-                getFieldByNameInClass(fieldName, classNode)
-            }
-        })
+        return classAndInterfaceNode.onHierarchy(classNode -> getFieldByNameInClass(fieldName, classNode));
     }
 
     @Nullable
     protected static FieldNode getFieldByNameInClass(
             @NonNull String fieldName, @NonNull ClassNode classNode) {
         //noinspection unchecked ASM api.
-        List<FieldNode> fields = classNode.fields
+        List<FieldNode> fields = classNode.fields;
         for (FieldNode field : fields) {
             if (field.name.equals(fieldName)) {
-                return field
+                return field;
             }
         }
-        return null
+        return null;
     }
 
     @Nullable
     protected AccessRight getMethodAccessRightByName(String methodName, String desc) {
-        MethodNode methodNode = getMethodByNameInClass(methodName, desc, classAndInterfaceNode)
-        methodNode != null ? IncrementalVisitor.AccessRight.fromNodeAccess(methodNode.access) : null
+        MethodNode methodNode = getMethodByNameInClass(methodName, desc, classAndInterfaceNode);
+        return methodNode != null ? AccessRight.fromNodeAccess(methodNode.access) : null;
     }
 
     @Nullable
     protected static MethodNode getMethodByNameInClass(
             String methodName, String desc, AsmClassNode classAndInterfaceNode) {
-        return classAndInterfaceNode.onAll(new Function<ClassNode, MethodNode>() {
-            @Override
-            MethodNode apply(ClassNode classNode) {
-                getMethodByNameInClass(methodName, desc, classNode)
-            }
-        })
+        return classAndInterfaceNode.onAll(classNode -> getMethodByNameInClass(methodName, desc, classNode));
     }
 
     @Nullable
     protected
     static MethodNode getMethodByNameInClass(String methodName, String desc, ClassNode classNode) {
         //noinspection unchecked ASM API
-        List<MethodNode> methods = classNode.methods
+        List<MethodNode> methods = classNode.methods;
         for (MethodNode method : methods) {
-            if (method.name == methodName && method.desc == desc) {
-                return method
+            if (method.name.equals(methodName) && method.desc.equals(desc)) {
+                return method;
             }
         }
-        return null
+        return null;
+    }
+
+    /**
+     * Simple Builder interface for common methods between all byte code visitors.
+     */
+    interface VisitorBuilder {
+        @NonNull
+        MonitorVisitor build(@NonNull AsmClassNode classNode, @NonNull ClassVisitor classVisitor);
+
+        @NonNull
+        String getMangledRelativeClassFilePath(@NonNull String originalClassFilePath);
     }
 
     /**
      * Defines when a method access flags are compatible with InstantRun technology.
-     *
+     * <p>
      * - If the method is a bridge method, we do not enable it for instantReload.
-     *   it is most likely only calling a twin method (same name, same parameters).
+     * it is most likely only calling a twin method (same name, same parameters).
      * - if the method is abstract or native, we don't add a redirection.
      *
      * @param access the method access flags
      * @return true if the method should be InstantRun enabled, false otherwise.
      */
     protected static boolean isAccessCompatibleWithStark(int access) {
-        return (access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_BRIDGE | Opcodes.ACC_NATIVE)) == 0
+        return (access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_BRIDGE | Opcodes.ACC_NATIVE)) == 0;
     }
 
-    static AsmClassNode instrumentClass(@NonNull File inputFile) {
+    public static AsmClassNode instrumentClass(@NonNull File inputFile, @NonNull VisitorBuilder builder) throws IOException {
         // if the class is not eligible for IR, return the non instrumented version or null if
         // the override class is requested.
         if (!isClassEligibleForStark(inputFile)) {
-            return null
+            return null;
         }
-        byte[] classBytes = Files.toByteArray(inputFile)
-        ClassReader classReader = new ClassReader(classBytes)
-        // override the getCommonSuperClass to use the thread context class loader instead of
-        // the system classloader. This is useful as ASM needs to load classes from the project
-        // which the system classloader does not have visibility upon.
-        // TODO: investigate if there is not a simpler way than overriding.
-        ClassWriter classWriter = new ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES)
-
-        ClassNode classNode = AsmUtils.readClass(classReader)
-
-        // when dealing with interface, we just copy the inputFile over without any changes unless
-        // this is a package private interface.
-        AccessRight accessRight = AccessRight.fromNodeAccess(classNode.access)
-        // no need to visit interfaces that do not have default methods.
-        if ((classNode.access & Opcodes.ACC_INTERFACE) != 0 && !hasDefaultMethods(classNode)) {
-            return null
-        }
-
-        AsmUtils.DirectoryBasedClassReader directoryClassReader =
-                new AsmUtils.DirectoryBasedClassReader(getBinaryFolder(inputFile, classNode))
-
-        // if we are targeting a more recent version than the current device, disable instant run
-        // for that class.
-        AsmClassNode parentedClassNode = AsmUtils.loadClass(directoryClassReader, classNode, 14)
-
-        // if we could not determine the parent hierarchy, disable instant run.
-        if (parentedClassNode == null) {// || isPackageInstantRunDisabled(inputFile)) {
-            return null
-        }
-
-        MonitorVisitor visitor = new MonitorVisitor(parentedClassNode, classWriter)
-        classNode.accept(visitor)
-        return parentedClassNode
-    }
-
-    @Nullable
-    static File instrumentClass(
-            int targetApiLevel,
-            @NonNull File inputRootDirectory,
-            @NonNull File inputFile,
-            @NonNull File outputDirectory) throws IOException {
-
-        byte[] classBytes
-        String path = FileUtils.relativePath(inputFile, inputRootDirectory)
-
-        // if the class is not eligible for IR, return the non instrumented version or null if
-        // the override class is requested.
-        if (!isClassEligibleForStark(inputFile)) {
-//            if (visitorBuilder.getOutputType() == OutputType.INSTRUMENT) {
-//                File outputFile = new File(outputDirectory, path)
-//                Files.createParentDirs(outputFile)
-//                Files.copy(inputFile, outputFile)
-//                return outputFile
-//            } else {
-            return null
-//            }
-        }
-        classBytes = Files.toByteArray(inputFile)
-        ClassReader classReader = new ClassReader(classBytes)
+        byte[] classBytes = Files.toByteArray(inputFile);
+        ClassReader classReader = new ClassReader(classBytes);
         // override the getCommonSuperClass to use the thread context class loader instead of
         // the system classloader. This is useful as ASM needs to load classes from the project
         // which the system classloader does not have visibility upon.
         // TODO: investigate if there is not a simpler way than overriding.
         ClassWriter classWriter = new ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES) {
-//            @Override
-//            protected String getCommonSuperClass(final String type1, final String type2) {
-//                Class<?> c, d
-//                ClassLoader classLoader = Thread.currentThread().getContextClassLoader()
-//                try {
-//                    c = Class.forName(type1.replace('/', '.'), false, classLoader)
-//                    d = Class.forName(type2.replace('/', '.'), false, classLoader)
-//                } catch (ClassNotFoundException e) {
-//                    // This may happen if we're processing class files which reference APIs not
-//                    // available on the target device. In this case return a dummy value, since this
-//                    // is ignored during dx compilation.
-//                    return "instant/run/NoCommonSuperClass"
-//                } catch (Exception e) {
-//                    throw new RuntimeException(e)
-//                }
-//                if (c.isAssignableFrom(d)) {
-//                    return type1
-//                }
-//                if (d.isAssignableFrom(c)) {
-//                    return type2
-//                }
-//                if (c.isInterface() || d.isInterface()) {
-//                    return "java/lang/Object"
-//                } else {
-//                    do {
-//                        c = c.getSuperclass()
-//                    }
-//                    while (!c.isAssignableFrom(d))
-//                        return c.getName().replace('.', '/')
-//                }
-//            }
-        }
+            @Override
+            protected String getCommonSuperClass(final String type1, final String type2) {
+                Class<?> c, d;
+                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+                try {
+                    c = Class.forName(type1.replace('/', '.'), false, classLoader);
+                    d = Class.forName(type2.replace('/', '.'), false, classLoader);
+                } catch (ClassNotFoundException e) {
+                    // This may happen if we're processing class files which reference APIs not
+                    // available on the target device. In this case return a dummy value, since this
+                    // is ignored during dx compilation.
+                    return "instant/run/NoCommonSuperClass";
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                if (c.isAssignableFrom(d)) {
+                    return type1;
+                }
+                if (d.isAssignableFrom(c)) {
+                    return type2;
+                }
+                if (c.isInterface() || d.isInterface()) {
+                    return "java/lang/Object";
+                } else {
+                    while (!c.isAssignableFrom(d)) {
+                        c = c.getSuperclass();
+                    }
+                    return c.getName().replace('.', '/');
+                }
+            }
+        };
 
-        ClassNode classNode = AsmUtils.readClass(classReader)
+        ClassNode classNode = AsmUtils.readClass(classReader);
 
         // when dealing with interface, we just copy the inputFile over without any changes unless
         // this is a package private interface.
-        AccessRight accessRight = AccessRight.fromNodeAccess(classNode.access)
-        File outputFile = new File(outputDirectory, path)
+        AccessRight accessRight = AccessRight.fromNodeAccess(classNode.access);
         // no need to visit interfaces that do not have default methods.
         if ((classNode.access & Opcodes.ACC_INTERFACE) != 0 && !hasDefaultMethods(classNode)) {
-//            if (visitorBuilder.getOutputType() == OutputType.INSTRUMENT) {
-//                // don't change the name of interfaces.
-//                Files.createParentDirs(outputFile)
-//                if (accessRight == AccessRight.PACKAGE_PRIVATE) {
-//                    classNode.access = classNode.access | Opcodes.ACC_PUBLIC
-//                    classNode.accept(classWriter)
-//                    Files.write(classWriter.toByteArray(), outputFile)
-//                } else {
-//                    // just copy the input file over, no change.
-//                    Files.write(classBytes, outputFile)
-//                }
-//                return outputFile
-//            } else {
-            return null
-//            }
+            return null;
         }
 
         AsmUtils.DirectoryBasedClassReader directoryClassReader =
-                new AsmUtils.DirectoryBasedClassReader(getBinaryFolder(inputFile, classNode))
+                new AsmUtils.DirectoryBasedClassReader(getBinaryFolder(inputFile, classNode));
 
         // if we are targeting a more recent version than the current device, disable instant run
         // for that class.
-        AsmClassNode parentedClassNode = AsmUtils.loadClass(directoryClassReader, classNode, targetApiLevel)
+        AsmClassNode parentedClassNode = AsmUtils.loadClass(directoryClassReader, classNode, 14);
 
         // if we could not determine the parent hierarchy, disable instant run.
         if (parentedClassNode == null) {// || isPackageInstantRunDisabled(inputFile)) {
-//            if (visitorBuilder.getOutputType() == OutputType.INSTRUMENT) {
-//                Files.createParentDirs(outputFile)
-//                Files.write(classBytes, outputFile)
-//                return outputFile
-//            } else {
-            return null
-//            }
+            return null;
         }
 
-        outputFile = new File(outputDirectory)
-//visitorBuilder.getMangledRelativeClassFilePath(path))
-        Files.createParentDirs(outputFile)
-        MonitorVisitor visitor = new MonitorVisitor(parentedClassNode, classWriter)
-
-//        if (visitorBuilder.getOutputType() == OutputType.INSTRUMENT) {
-//            /*
-//             * Classes that do not have a serial version unique identifier, will be updated to
-//             * contain one. This is accomplished by using the {@link SerialVersionUIDAdder} class
-//             * visitor that is added when this visitor is created (see the constructor). This way,
-//             * the serialVersionUID is the same for instrumented and non-instrumented classes. All
-//             * classes will have a serialVersionUID, so if some of the classes that is extended
-//             * starts implementing {@link java.io.Serializable}, serialization and deserialization
-//             * will continue to work correctly.
-//             */
-//            classNode.accept(new SerialVersionUIDAdder(visitor))
-//        } else {
-        classNode.accept(visitor)
-//        }
-
-        Files.write(classWriter.toByteArray(), outputFile)
-        return outputFile
+        MonitorVisitor visitor = builder.build(parentedClassNode, classWriter);
+        classNode.accept(visitor);
+//        Files.write(classWriter.toByteArray(), inputFile);
+        return parentedClassNode;
     }
+//
+//    @Nullable
+//    static File instrumentClass(
+//            int targetApiLevel,
+//            @NonNull File inputRootDirectory,
+//            @NonNull File inputFile,
+//            @NonNull File outputDirectory) throws IOException {
+//
+//        byte[] classBytes;
+//        String path = FileUtils.relativePath(inputFile, inputRootDirectory);
+//
+//        // if the class is not eligible for IR, return the non instrumented version or null if
+//        // the override class is requested.
+//        if (!isClassEligibleForStark(inputFile)) {
+////            if (visitorBuilder.getOutputType() == OutputType.INSTRUMENT) {
+////                File outputFile = new File(outputDirectory, path)
+////                Files.createParentDirs(outputFile)
+////                Files.copy(inputFile, outputFile)
+////                return outputFile
+////            } else {
+//            return null;
+////            }
+//        }
+//        classBytes = Files.toByteArray(inputFile);
+//        ClassReader classReader = new ClassReader(classBytes);
+//        // override the getCommonSuperClass to use the thread context class loader instead of
+//        // the system classloader. This is useful as ASM needs to load classes from the project
+//        // which the system classloader does not have visibility upon.
+//        // TODO: investigate if there is not a simpler way than overriding.
+//        ClassWriter classWriter = new ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES) {
+////            @Override
+////            protected String getCommonSuperClass(final String type1, final String type2) {
+////                Class<?> c, d
+////                ClassLoader classLoader = Thread.currentThread().getContextClassLoader()
+////                try {
+////                    c = Class.forName(type1.replace('/', '.'), false, classLoader)
+////                    d = Class.forName(type2.replace('/', '.'), false, classLoader)
+////                } catch (ClassNotFoundException e) {
+////                    // This may happen if we're processing class files which reference APIs not
+////                    // available on the target device. In this case return a dummy value, since this
+////                    // is ignored during dx compilation.
+////                    return "instant/run/NoCommonSuperClass"
+////                } catch (Exception e) {
+////                    throw new RuntimeException(e)
+////                }
+////                if (c.isAssignableFrom(d)) {
+////                    return type1
+////                }
+////                if (d.isAssignableFrom(c)) {
+////                    return type2
+////                }
+////                if (c.isInterface() || d.isInterface()) {
+////                    return "java/lang/Object"
+////                } else {
+////                    do {
+////                        c = c.getSuperclass()
+////                    }
+////                    while (!c.isAssignableFrom(d))
+////                        return c.getName().replace('.', '/')
+////                }
+////            }
+//        };
+//
+//        ClassNode classNode = AsmUtils.readClass(classReader);
+//
+//        // when dealing with interface, we just copy the inputFile over without any changes unless
+//        // this is a package private interface.
+//        AccessRight accessRight = AccessRight.fromNodeAccess(classNode.access);
+//        File outputFile = new File(outputDirectory, path);
+//        // no need to visit interfaces that do not have default methods.
+//        if ((classNode.access & Opcodes.ACC_INTERFACE) != 0 && !hasDefaultMethods(classNode)) {
+////            if (visitorBuilder.getOutputType() == OutputType.INSTRUMENT) {
+////                // don't change the name of interfaces.
+////                Files.createParentDirs(outputFile)
+////                if (accessRight == AccessRight.PACKAGE_PRIVATE) {
+////                    classNode.access = classNode.access | Opcodes.ACC_PUBLIC
+////                    classNode.accept(classWriter)
+////                    Files.write(classWriter.toByteArray(), outputFile)
+////                } else {
+////                    // just copy the input file over, no change.
+////                    Files.write(classBytes, outputFile)
+////                }
+////                return outputFile
+////            } else {
+//            return null;
+////            }
+//        }
+//
+//        AsmUtils.DirectoryBasedClassReader directoryClassReader =
+//                new AsmUtils.DirectoryBasedClassReader(getBinaryFolder(inputFile, classNode));
+//
+//        // if we are targeting a more recent version than the current device, disable instant run
+//        // for that class.
+//        AsmClassNode parentedClassNode = AsmUtils.loadClass(directoryClassReader, classNode, targetApiLevel);
+//
+//        // if we could not determine the parent hierarchy, disable instant run.
+//        if (parentedClassNode == null) {// || isPackageInstantRunDisabled(inputFile)) {
+////            if (visitorBuilder.getOutputType() == OutputType.INSTRUMENT) {
+////                Files.createParentDirs(outputFile)
+////                Files.write(classBytes, outputFile)
+////                return outputFile
+////            } else {
+//            return null;
+////            }
+//        }
+//
+//        outputFile = new File(outputDirectory);
+////visitorBuilder.getMangledRelativeClassFilePath(path))
+//        Files.createParentDirs(outputFile);
+//        MonitorVisitor visitor = new MonitorVisitor(parentedClassNode, classWriter);
+//
+////        if (visitorBuilder.getOutputType() == OutputType.INSTRUMENT) {
+////            /*
+////             * Classes that do not have a serial version unique identifier, will be updated to
+////             * contain one. This is accomplished by using the {@link SerialVersionUIDAdder} class
+////             * visitor that is added when this visitor is created (see the constructor). This way,
+////             * the serialVersionUID is the same for instrumented and non-instrumented classes. All
+////             * classes will have a serialVersionUID, so if some of the classes that is extended
+////             * starts implementing {@link java.io.Serializable}, serialization and deserialization
+////             * will continue to work correctly.
+////             */
+////            classNode.accept(new SerialVersionUIDAdder(visitor))
+////        } else {
+//        classNode.accept(visitor);
+////        }
+//
+//        Files.write(classWriter.toByteArray(), outputFile);
+//        return outputFile;
+//    }
 
     @NonNull
     private static File getBinaryFolder(@NonNull File inputFile, @NonNull ClassNode classNode) {
         return new File(inputFile.getAbsolutePath().substring(0,
-                inputFile.getAbsolutePath().length() - (classNode.name.length() + ".class".length())))
+                inputFile.getAbsolutePath().length() - (classNode.name.length() + ".class".length())));
     }
 
     static boolean hasDefaultMethods(@NonNull ClassNode classNode) {
@@ -506,22 +547,18 @@ class MonitorVisitor extends ClassVisitor {
             return false;
         }
         // interfaces before V1_8 cannot have default methods.
-        return classNode.version >= Opcodes.V1_8 && ((List<MethodNode>) classNode.methods)
+        return classNode.version >= Opcodes.V1_8
+                && ((List<MethodNode>) classNode.methods)
                 .stream()
-                .anyMatch(new Predicate<MethodNode>() {
-            @Override
-            boolean test(MethodNode methodNode) {
-                methodNode.access & Opcodes.ACC_ABSTRACT == 0
-            }
-        })
+                .anyMatch(methodNode -> (methodNode.access & Opcodes.ACC_ABSTRACT) == 0);
     }
 
     static boolean isClassEligibleForStark(@NonNull File inputFile) {
         if (inputFile.getPath().endsWith(SdkConstants.DOT_CLASS)) {
-            String fileName = inputFile.getName()
-            return fileName != ("R" + SdkConstants.DOT_CLASS) && !fileName.startsWith("R\$")
+            String fileName = inputFile.getName();
+            return fileName != ("R" + SdkConstants.DOT_CLASS) && !fileName.startsWith("R$");
         } else {
-            return false
+            return false;
         }
     }
 }

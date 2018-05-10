@@ -202,22 +202,94 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.gradle.asm.monitor
+package com.ximsfei.stark.gradle.asm.monitor;
 
-import com.android.annotations.NonNull
-import org.objectweb.asm.tree.ClassNode
+import com.android.annotations.NonNull;
 
-/** Encapsulation of an Asm {@link org.objectweb.asm.tree.ClassNode} reference. */
-class AsmAbstractNode {
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.VarInsnNode;
+
+import java.util.List;
+
+/**
+ * A deconstructed constructor, split up in the parts mentioned above.
+ */
+class Constructor {
+
+    /**
+     * The class this constructor belongs to.
+     */
     @NonNull
-    private final ClassNode classNode
+    public String owner;
 
-    protected AsmAbstractNode(@NonNull ClassNode classNode) {
-        this.classNode = classNode
-    }
-
+    /**
+     * The sequence of instructions up to, but not including loadThis.
+     * These instructions cannot be hot swapped.
+     */
     @NonNull
-    ClassNode getClassNode() {
-        classNode
+    public final List<AbstractInsnNode> prelude;
+
+    /**
+     * The last LOAD_0 instruction of the original code, before the call to the delegated
+     * constructor.
+     */
+    @NonNull
+    public final VarInsnNode loadThis;
+
+    /**
+     * Line number of LOAD_0. Used to set the line number in the generated constructor call
+     * so that a break point may be set at this(...) or super(...)
+     */
+    public final int lineForLoad;
+
+    /**
+     * The "args" part of the constructor. Described above.
+     */
+    @NonNull
+    public final MethodNode args;
+
+    /**
+     * The INVOKESPECIAL instruction of the original code that calls the delegation.
+     */
+    @NonNull
+    public final MethodInsnNode delegation;
+
+    /**
+     * A copy of the body of the constructor.
+     */
+    @NonNull
+    public final MethodNode body;
+
+    /**
+     * The local variable order.
+     */
+    @NonNull
+    public final List<LocalVariable> variables;
+
+    /**
+     * The number of local variables seen at the last loadThis.
+     */
+    public final int localsAtLoadThis;
+
+    Constructor(@NonNull String owner,
+            @NonNull List<AbstractInsnNode> prelude,
+            @NonNull VarInsnNode loadThis,
+            int lineForLoad,
+            @NonNull MethodNode args,
+            @NonNull MethodInsnNode delegation,
+            @NonNull MethodNode body,
+            @NonNull List<LocalVariable> variables,
+            int localsAtLoadThis) {
+        this.owner = owner;
+        this.prelude = prelude;
+        this.loadThis = loadThis;
+        this.lineForLoad = lineForLoad;
+        this.args = args;
+        this.delegation = delegation;
+        this.body = body;
+        this.variables = variables;
+        this.localsAtLoadThis = localsAtLoadThis;
     }
 }
