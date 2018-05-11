@@ -229,7 +229,7 @@ import org.objectweb.asm.tree.VarInsnNode
 
 class HashMethodNode {
 
-    static String generateMethodHashCode(MethodNode methodNode) {
+    static String generateMethodHashCode(String className, MethodNode methodNode) {
         StringBuilder methodBuilder = new StringBuilder()
         int i, j, n
         n = methodNode.parameters == null ? 0 : methodNode.parameters.size()
@@ -334,8 +334,10 @@ class HashMethodNode {
                         /**
                          * The type of {@link LabelNode} "instructions".
                          */
+                        /*
                         methodBuilder.append(insn.type)
                         methodBuilder.append(insn.opcode)
+                        */
 //                        methodBuilder.append(((LabelNode) insn).label.info)
                         break
                     case AbstractInsnNode.LDC_INSN:

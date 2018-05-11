@@ -259,7 +259,6 @@ class StarkTransform extends Transform {
             doPatch(invocation)
         } else {
             doMonitor(invocation)
-            doInject(invocation)
         }
     }
 
@@ -297,7 +296,6 @@ class StarkTransform extends Transform {
                         ClassReader classReader = new ClassReader(file.bytes)
                         String className = classReader.className.replace(File.separator, ".")
                         String classHash = HashUtil.sha256(file.bytes).asHexString()
-                        Plog.q "classReader = " + className
                         if (backupClassHashMap.get(className) == classHash) {
                             return
                         }
@@ -320,9 +318,9 @@ class StarkTransform extends Transform {
                         }
                         classNode.classNode.methods.each { MethodNode methodNode ->
                             String methodName = methodNode.name + methodNode.desc
-                            String methodHash = HashMethodNode.generateMethodHashCode(methodNode)
+                            String methodHash = HashMethodNode.generateMethodHashCode(className, methodNode)
                             if (backupMethodHashMap.get(methodName) != methodHash) {
-                                Plog.q "$methodName method is changed."
+                                Plog.q "$className $methodName method is changed."
                             }
                         }
                     }
@@ -379,7 +377,7 @@ class StarkTransform extends Transform {
                             monitorMethodFile.append(methodNode.name)
                             monitorMethodFile.append(methodNode.desc)
                             monitorMethodFile.append("->")
-                            monitorMethodFile.append(HashMethodNode.generateMethodHashCode(methodNode))
+                            monitorMethodFile.append(HashMethodNode.generateMethodHashCode(className, methodNode))
                             monitorMethodFile.append("\n")
                         }
                     }
@@ -391,24 +389,6 @@ class StarkTransform extends Transform {
                 if (starkScope == null) {
                     return
                 }
-            }
-        }
-    }
-    /**
-     * Method Redirection, Resources Redirection.
-     *
-     * @param invocation
-     */
-    void doInject(TransformInvocation invocation) {
-        def outputProvider = invocation.outputProvider
-        invocation.inputs.each { input ->
-            input.directoryInputs.each {
-//                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.DIRECTORY)
-//                FileUtils.copyDirectory(it.file, dest)
-            }
-            input.jarInputs.each {
-//                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.JAR)
-//                FileUtils.copyFile(it.file, dest)
             }
         }
     }

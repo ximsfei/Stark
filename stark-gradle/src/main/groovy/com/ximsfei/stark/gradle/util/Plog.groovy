@@ -210,6 +210,6 @@ class Plog {
     static Logger logger
 
     static def q(def msg) {
-        if (logger != null) logger.quiet "==========Stark Gradle: $msg=========="
+        if (logger != null) logger.quiet "==========Stark Gradle: $msg"
     }
 }

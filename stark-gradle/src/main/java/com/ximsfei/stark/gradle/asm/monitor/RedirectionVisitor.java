@@ -633,7 +633,7 @@ public class RedirectionVisitor extends MonitorVisitor {
      *            $local1.append("Method not found ");
      *            $local1.append(name);
      *            $local1.append(" in " $classType $super implementation");
-     *            throw new $package/InstantReloadException($local1.toString());
+     *            throw new $package/StarkReloadException($local1.toString());
      *      }
      * </code>
      */
@@ -761,7 +761,7 @@ public class RedirectionVisitor extends MonitorVisitor {
      *      $local1.append("Method not found ");
      *      $local1.append(name);
      *      $local1.append(" in " $classType $super implementation");
-     *      throw new $package/InstantReloadException($local1.toString());
+     *      throw new $package/StarkReloadException($local1.toString());
      *   }
      * </code>
      */
