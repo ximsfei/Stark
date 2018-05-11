@@ -208,12 +208,15 @@ import com.android.SdkConstants;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.google.common.io.Files;
+import com.ximsfei.stark.gradle.StarkConstants;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.commons.SerialVersionUIDAdder;
+import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -223,10 +226,10 @@ import java.io.IOException;
 import java.util.List;
 
 public class MonitorVisitor extends ClassVisitor {
-    public static final String RUNTIME_PACKAGE = "com/ximsfei/stark/core/runtime";
-    public static final Type CHANGE_TYPE = Type.getObjectType(RUNTIME_PACKAGE + "/IncrementalChange");
-    protected static final Type INSTANT_RELOAD_EXCEPTION =
-            Type.getObjectType(RUNTIME_PACKAGE + "/InstantReloadException");
+    public static final String RUNTIME_PACKAGE = StarkConstants.STARK_CORE_RUNTIME_PACKAGE;
+    public static final Type CHANGE_TYPE = Type.getObjectType(RUNTIME_PACKAGE + "/StarkChange");
+    protected static final Type INSTANT_RELOAD_EXCEPTION = Type.getObjectType(RUNTIME_PACKAGE + "/StarkReloadException");
+    public static final Type TARGET_API_TYPE = Type.getObjectType("android/annotation/TargetApi");
 
     protected String visitedClassName;
     protected String visitedSuperName;
@@ -256,7 +259,7 @@ public class MonitorVisitor extends ClassVisitor {
 
     @NonNull
     protected static String getRuntimeTypeName(@NonNull Type type) {
-        return "L" + type.getInternalName() + "";
+        return "L" + type.getInternalName() + ";";
     }
 
     @Nullable
@@ -268,7 +271,8 @@ public class MonitorVisitor extends ClassVisitor {
     @Nullable
     protected static FieldNode getFieldByNameInClass(
             @NonNull String fieldName, @NonNull AsmClassNode classAndInterfaceNode) {
-        return classAndInterfaceNode.onHierarchy(classNode -> getFieldByNameInClass(fieldName, classNode));
+        return classAndInterfaceNode.onHierarchy(
+                classNode -> getFieldByNameInClass(fieldName, classNode));
     }
 
     @Nullable
@@ -293,12 +297,12 @@ public class MonitorVisitor extends ClassVisitor {
     @Nullable
     protected static MethodNode getMethodByNameInClass(
             String methodName, String desc, AsmClassNode classAndInterfaceNode) {
-        return classAndInterfaceNode.onAll(classNode -> getMethodByNameInClass(methodName, desc, classNode));
+        return classAndInterfaceNode.onAll(
+                classNode -> getMethodByNameInClass(methodName, desc, classNode));
     }
 
     @Nullable
-    protected
-    static MethodNode getMethodByNameInClass(String methodName, String desc, ClassNode classNode) {
+    protected static MethodNode getMethodByNameInClass(String methodName, String desc, ClassNode classNode) {
         //noinspection unchecked ASM API
         List<MethodNode> methods = classNode.methods;
         for (MethodNode method : methods) {
@@ -386,6 +390,11 @@ public class MonitorVisitor extends ClassVisitor {
         AccessRight accessRight = AccessRight.fromNodeAccess(classNode.access);
         // no need to visit interfaces that do not have default methods.
         if ((classNode.access & Opcodes.ACC_INTERFACE) != 0 && !hasDefaultMethods(classNode)) {
+            if (accessRight == AccessRight.PACKAGE_PRIVATE) {
+                classNode.access = classNode.access | Opcodes.ACC_PUBLIC;
+                classNode.accept(classWriter);
+                Files.write(classWriter.toByteArray(), inputFile);
+            }
             return null;
         }
 
@@ -394,7 +403,13 @@ public class MonitorVisitor extends ClassVisitor {
 
         // if we are targeting a more recent version than the current device, disable instant run
         // for that class.
-        AsmClassNode parentedClassNode = AsmUtils.loadClass(directoryClassReader, classNode, 14);
+        AsmClassNode parentedClassNode =
+                isClassTargetingNewerPlatform(14,
+                        TARGET_API_TYPE,
+                        directoryClassReader,
+                        classNode)
+                        ? null
+                        : AsmUtils.loadClass(directoryClassReader, classNode, 14);
 
         // if we could not determine the parent hierarchy, disable instant run.
         if (parentedClassNode == null) {// || isPackageInstantRunDisabled(inputFile)) {
@@ -402,8 +417,8 @@ public class MonitorVisitor extends ClassVisitor {
         }
 
         MonitorVisitor visitor = builder.build(parentedClassNode, classWriter);
-        classNode.accept(visitor);
-//        Files.write(classWriter.toByteArray(), inputFile);
+        classNode.accept(new SerialVersionUIDAdder(visitor));
+        Files.write(classWriter.toByteArray(), inputFile);
         return parentedClassNode;
     }
 //
@@ -540,6 +555,32 @@ public class MonitorVisitor extends ClassVisitor {
     private static File getBinaryFolder(@NonNull File inputFile, @NonNull ClassNode classNode) {
         return new File(inputFile.getAbsolutePath().substring(0,
                 inputFile.getAbsolutePath().length() - (classNode.name.length() + ".class".length())));
+    }
+
+    static boolean isClassTargetingNewerPlatform(
+            int targetApiLevel,
+            @NonNull Type targetApiAnnotationType,
+            @NonNull AsmUtils.ClassNodeProvider locator,
+            @NonNull ClassNode classNode)
+            throws IOException {
+
+        List<AnnotationNode> invisibleAnnotations =
+                AsmUtils.getInvisibleAnnotationsOnClassOrOuterClasses(locator, classNode);
+        for (AnnotationNode classAnnotation : invisibleAnnotations) {
+            if (classAnnotation.desc.equals(targetApiAnnotationType.getDescriptor())) {
+                int valueIndex = 0;
+                List values = classAnnotation.values;
+                while (valueIndex < values.size()) {
+                    String name = (String) values.get(valueIndex);
+                    if (name.equals("value")) {
+                        Object value = values.get(valueIndex + 1);
+                        return Integer.class.cast(value) > targetApiLevel;
+                    }
+                    valueIndex = valueIndex + 2;
+                }
+            }
+        }
+        return false;
     }
 
     static boolean hasDefaultMethods(@NonNull ClassNode classNode) {

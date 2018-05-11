@@ -202,23 +202,25 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.gradle
+package com.ximsfei.stark.gradle;
 
-class StarkConstants {
-    private static final String TASKS_PREFIX = "stark"
-    static final String TASKS_GROUP = "stark"
+public class StarkConstants {
+    private static final String TASKS_PREFIX = "stark";
+    public static final String TASKS_GROUP = "stark";
 
-    static final String TASK_BACKUP = TASKS_PREFIX + "Backup"
-    static final String TASK_GENERATE_PATCH = TASKS_PREFIX + "GeneratePatch"
+    public static final String TASK_BACKUP = TASKS_PREFIX + "Backup";
+    public static final String TASK_GENERATE_PATCH = TASKS_PREFIX + "GeneratePatch";
 
-    static final String TRANSFORM_STARK_NAME = "stark"
+    public static final String TRANSFORM_STARK_NAME = "stark";
 
-    static final String STARK_DIR = "stark"
-    static final String STARK_BACKUP_DIR = "backup"
-    static final String STARK_MONITOR_DIR = "monitor"
-    static final String STARK_MONITOR_CLASS = "monitor-class"
-    static final String STARK_BUILD_HASH_FILE = "build-hash"
-    static final String STARK_PUBLIC_TXT_FILE = "public.txt"
+    public static final String STARK_DIR = "stark";
+    public static final String STARK_BACKUP_DIR = "backup";
+    public static final String STARK_MONITOR_DIR = "monitor";
+    public static final String STARK_MONITOR_CLASS = "monitor-class";
+    public static final String STARK_BUILD_HASH_FILE = "build-hash";
+    public static final String STARK_PUBLIC_TXT_FILE = "public.txt";
 
-    static final String STARK_CORE_PACKAGE_NAME = "com.ximsfei.stark.core"
+    public static final String STARK_CORE_PACKAGE_NAME = "com.ximsfei.stark.core";
+    public static final String STARK_CORE_RUNTIME_PACKAGE = "com/ximsfei/stark/core/runtime";
+    public static final String STARK_CORE_RUNTIME_PACKAGE_NAME = STARK_CORE_PACKAGE_NAME + ".runtime";
 }

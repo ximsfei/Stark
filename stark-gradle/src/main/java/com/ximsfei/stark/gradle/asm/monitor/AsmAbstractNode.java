@@ -205,11 +205,15 @@
 package com.ximsfei.stark.gradle.asm.monitor;
 
 import com.android.annotations.NonNull;
+
 import org.objectweb.asm.tree.ClassNode;
 
-/** Encapsulation of an Asm {@link ClassNode} reference. */
+/**
+ * Encapsulation of an Asm {@link ClassNode} reference.
+ */
 class AsmAbstractNode {
-    @NonNull private final ClassNode classNode;
+    @NonNull
+    private final ClassNode classNode;
 
     protected AsmAbstractNode(@NonNull ClassNode classNode) {
         this.classNode = classNode;

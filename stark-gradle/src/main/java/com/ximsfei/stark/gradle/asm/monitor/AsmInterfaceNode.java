@@ -207,6 +207,7 @@ package com.ximsfei.stark.gradle.asm.monitor;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.google.common.collect.ImmutableList;
+
 import org.objectweb.asm.tree.ClassNode;
 
 import java.util.function.Function;
@@ -216,14 +217,14 @@ import java.util.function.Function;
  * ClassNode} representing the interface as well as reference to the parent interface encapsulated
  * reference.
  */
-public class AsmInterfaceNode extends AsmAbstractNode {
+class AsmInterfaceNode extends AsmAbstractNode {
     @NonNull
     private final ImmutableList<AsmInterfaceNode> superInterfaces;
 
     /**
      * Construct a new interface encapsulation with an optional super interface.
      *
-     * @param classNode the interface {@link ClassNode}
+     * @param classNode       the interface {@link ClassNode}
      * @param superInterfaces potentially empty list of interfaces this interface extend.
      */
     AsmInterfaceNode(
@@ -241,9 +242,9 @@ public class AsmInterfaceNode extends AsmAbstractNode {
      * invocations, this function will in turn return null.
      *
      * @param function some processing to apply on each interface definition.
-     * @param < T >   the type of data produced by the function.
+     * @param <T>      the type of data produced by the function.
      * @return the first non null value returned by the passed function or null if all returned
-     *     null.
+     * null.
      */
     @Nullable
     <T> T onAll(Function<ClassNode, T> function) {

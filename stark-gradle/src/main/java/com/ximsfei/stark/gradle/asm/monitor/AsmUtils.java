@@ -315,8 +315,7 @@ public class AsmUtils {
     @NonNull
     static List<AnnotationNode> getInvisibleAnnotationsOnClassOrOuterClasses(
             @NonNull ClassNodeProvider classReader,
-            @NonNull ClassNode classNode,
-            @NonNull ILogger logger)
+            @NonNull ClassNode classNode)
             throws IOException {
 
         ImmutableList.Builder<AnnotationNode> listBuilder = ImmutableList.builder();
@@ -337,7 +336,7 @@ public class AsmUtils {
      * ClassNode}. Store the class and its interfaces into a {@link AsmClassNode} instance.
      *
      * @param classReaderProvider provider to read class bytes from storage
-     * @param parentClassName requested class name
+     * @param parentClassName     requested class name
      * @return null if the parentClassName cannot be located by the provider otherwise an {@link
      * AsmClassNode} encapsulating the class and its directly implemented interfaces
      * @throws IOException when bytes cannot be read.
@@ -384,8 +383,8 @@ public class AsmUtils {
      * Loads an interface hierarchy and build a {@link AsmInterfaceNode}
      *
      * @param classReaderProvider provider of {@link ClassNode} instances.
-     * @param interfaceName name of the interface to load the hierarchy for.
-     * @param classNode the class implementing the interface name.
+     * @param interfaceName       name of the interface to load the hierarchy for.
+     * @param classNode           the class implementing the interface name.
      * @return the interface hierarchy for interfaceName or null if class bytes cannot be located or
      * loaded.
      * @throws IOException when loading bytes from disk failed.
@@ -414,9 +413,9 @@ public class AsmUtils {
     /**
      * Read all directly implemented interfaces from the passed {@link ClassNode} instance.
      *
-     * @param classNode the class
+     * @param classNode           the class
      * @param classReaderProvider a provider to read class bytes from storage
-     * @param interfacesList a builder to store the list of AsmInterfaceNode for each directly
+     * @param interfacesList      a builder to store the list of AsmInterfaceNode for each directly
      *                            implemented interfaces, can be empty after method returns.
      * @return true if implemented interfaces could all be loaded, false otherwise.
      * @throws IOException when bytes cannot be read

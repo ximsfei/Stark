@@ -344,7 +344,7 @@ class GenerateStarkConfigTask extends SysTask<GenerateBuildConfig> {
                 }
                 writer.beginInitializer(true)
                 for (ClassField field : mFields) {
-                    writer.emitStatement(StarkConstants.STARK_CORE_PACKAGE_NAME
+                    writer.emitStatement(StarkConstants.STARK_CORE_RUNTIME_PACKAGE_NAME
                             + "." + STARK_CONFIG_CLASS_NAME
                             + "." + field.name + " = " + field.name)
                 }
@@ -352,7 +352,7 @@ class GenerateStarkConfigTask extends SysTask<GenerateBuildConfig> {
                 for (Object item : mItems) {
                     if (item instanceof ClassField) {
                         ClassField field = (ClassField) item
-                        writer.emitStatement(StarkConstants.STARK_CORE_PACKAGE_NAME
+                        writer.emitStatement(StarkConstants.STARK_CORE_RUNTIME_PACKAGE_NAME
                                 + "." + STARK_CONFIG_CLASS_NAME + "." + field.name + " = " + field.name)
                     }
                 }

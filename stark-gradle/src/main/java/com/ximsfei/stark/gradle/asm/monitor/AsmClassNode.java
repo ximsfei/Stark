@@ -247,7 +247,7 @@ public class AsmClassNode extends AsmAbstractNode {
      * the passed function invocations, this function will in turn return null.
      *
      * @param function some processing to apply on each class definition.
-     * @param <        T >     the type of data produced by the function.
+     * @param <T>      the type of data produced by the function.
      * @return the first non null value returned by the passed function or null if all returned
      * null.
      */
@@ -272,7 +272,7 @@ public class AsmClassNode extends AsmAbstractNode {
      * function invocations, this function will in turn return null.
      *
      * @param function some processing to apply on each class definition.
-     * @param <        T >     the type of data produced by the function.
+     * @param <T>      the type of data produced by the function.
      * @return the first non null value returned by the passed function or null if all returned
      * null.
      */
@@ -298,7 +298,7 @@ public class AsmClassNode extends AsmAbstractNode {
      * function invocations, this function will in turn return null.
      *
      * @param function some processing to apply on each class definition.
-     * @param <        T >     the type of data produced by the function.
+     * @param <T>      the type of data produced by the function.
      * @return the first non null value returned by the passed function or null if all returned
      * null.
      */
@@ -324,7 +324,7 @@ public class AsmClassNode extends AsmAbstractNode {
     /**
      * Returns true if this class has a parent, false otherwise
      */
-    boolean hasParent() {
+    public boolean hasParent() {
         return parent != null;
     }
 
@@ -332,7 +332,7 @@ public class AsmClassNode extends AsmAbstractNode {
      * Returns the parent of this class or null if it has no parent.
      */
     @NonNull
-    AsmClassNode getParent() {
+    public AsmClassNode getParent() {
         if (parent == null) {
             throw new IllegalStateException(
                     String.format(
@@ -346,7 +346,7 @@ public class AsmClassNode extends AsmAbstractNode {
      *
      * @return the interface hierarchy list.
      */
-    List<AsmInterfaceNode> getInterfaces() {
+    public List<AsmInterfaceNode> getInterfaces() {
         return implementedInterfaces;
     }
 }

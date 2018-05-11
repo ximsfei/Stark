@@ -251,8 +251,8 @@ abstract class StringSwitch {
     // Figure out some types and methods ahead of time.
     private static final Type OBJECT_TYPE = Type.getType(java.lang.Object.class);
     private static final Type STRING_TYPE = Type.getType(java.lang.String.class);
-    private static final Type INSTANT_RELOAD_EXCEPTION_TYPE =
-            Type.getObjectType(MonitorVisitor.RUNTIME_PACKAGE + "/InstantReloadException");
+    private static final Type STARK_RELOAD_EXCEPTION_TYPE =
+            Type.getObjectType(MonitorVisitor.RUNTIME_PACKAGE + "/StarkReloadException");
 
     // Methods overridden by caller to implement the switch behavior
 
@@ -372,7 +372,7 @@ abstract class StringSwitch {
      * @param visitedClassName The abstract string trie structure.
      */
     void writeMissingMessageWithHash(GeneratorAdapter mv, String visitedClassName) {
-        mv.newInstance(INSTANT_RELOAD_EXCEPTION_TYPE);
+        mv.newInstance(STARK_RELOAD_EXCEPTION_TYPE);
         mv.dup();
         mv.push("String switch could not find '%s' with hashcode %s in %s");
         mv.push(3);
@@ -400,7 +400,7 @@ abstract class StringSwitch {
                 "java/lang/String",
                 "format",
                 "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;", false);
-        mv.invokeConstructor(INSTANT_RELOAD_EXCEPTION_TYPE,
+        mv.invokeConstructor(STARK_RELOAD_EXCEPTION_TYPE,
                 Method.getMethod("void <init> (String)"));
         mv.throwException();
     }
