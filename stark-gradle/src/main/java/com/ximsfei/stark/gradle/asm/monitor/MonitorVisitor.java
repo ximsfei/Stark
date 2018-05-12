@@ -341,7 +341,9 @@ public class MonitorVisitor extends ClassVisitor {
         return (access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_BRIDGE | Opcodes.ACC_NATIVE)) == 0;
     }
 
-    public static AsmClassNode instrumentClass(@NonNull File inputFile, File outputFile, @NonNull VisitorBuilder builder) throws IOException {
+    public static AsmClassNode instrumentClass(@NonNull File inputFile, File outputFile,
+                                               @NonNull ClassLoader baseClassLoader,
+                                               @NonNull VisitorBuilder builder) throws IOException {
         // if the class is not eligible for IR, return the non instrumented version or null if
         // the override class is requested.
         Files.createParentDirs(outputFile);
@@ -403,7 +405,7 @@ public class MonitorVisitor extends ClassVisitor {
         }
 
         AsmUtils.DirectoryBasedClassReader directoryClassReader =
-                new AsmUtils.DirectoryBasedClassReader(getBinaryFolder(inputFile, classNode));
+                new AsmUtils.ClassLoaderAndDirectoryBasedClassReader(baseClassLoader, getBinaryFolder(inputFile, classNode));
 
         // if we are targeting a more recent version than the current device, disable instant run
         // for that class.

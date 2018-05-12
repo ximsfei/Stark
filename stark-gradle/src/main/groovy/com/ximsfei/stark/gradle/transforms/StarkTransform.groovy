@@ -208,11 +208,14 @@ import com.android.SdkConstants
 import com.android.annotations.NonNull
 import com.android.build.api.transform.DirectoryInput
 import com.android.build.api.transform.Format
+import com.android.build.api.transform.JarInput
 import com.android.build.api.transform.QualifiedContent
 import com.android.build.api.transform.Transform
 import com.android.build.api.transform.TransformException
+import com.android.build.api.transform.TransformInput
 import com.android.build.api.transform.TransformInvocation
 import com.android.build.api.transform.TransformOutputProvider
+import com.android.build.gradle.BaseExtension
 import com.android.build.gradle.internal.pipeline.TransformManager
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSet
@@ -225,9 +228,11 @@ import com.ximsfei.stark.gradle.asm.monitor.PatchVisitor
 import com.ximsfei.stark.gradle.asm.monitor.RedirectionVisitor
 import com.ximsfei.stark.gradle.exception.StarkException
 import com.ximsfei.stark.gradle.scope.GlobalScope
+import com.ximsfei.stark.gradle.util.AndroidClassPath
 import com.ximsfei.stark.gradle.util.Plog
 import groovy.io.FileType
 import org.apache.commons.io.FileUtils
+import org.gradle.api.Project
 import org.gradle.internal.hash.HashUtil
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
@@ -236,6 +241,13 @@ import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodNode
 
 class StarkTransform extends Transform {
+    Project project
+    BaseExtension android
+
+    StarkTransform(Project project, BaseExtension android) {
+        this.project = project
+        this.android = android
+    }
 
     @Override
     String getName() {
@@ -281,6 +293,13 @@ class StarkTransform extends Transform {
             // do nothing
             Plog.q "Current stark scope is null. Do nothing."
         }
+
+        // first get all referenced input to construct a class loader capable of loading those
+        // classes. This is useful for ASM as it needs to load classes
+        List<URL> referencedInputUrls = getAllClassesLocations(invocation.getInputs(), invocation.getReferencedInputs())
+
+        URLClassLoader baseClassLoader = new NonDelegatingUrlClassloader(referencedInputUrls)
+
         final ImmutableList.Builder<String> generatedClassesBuilder = ImmutableList.builder()
         def patchFileDir = outputProvider.getContentLocation("enhanced_classes",
                 ImmutableSet.of(QualifiedContent.DefaultContentType.CLASSES),
@@ -313,7 +332,7 @@ class StarkTransform extends Transform {
                             return
                         }
                         File outputFile = new File(file.absolutePath.replace(inputDir.file.absolutePath, dest.absolutePath))
-                        AsmClassNode asmClassNode = MonitorVisitor.instrumentClass(file, outputFile, PatchVisitor.VISITOR_BUILDER)
+                        AsmClassNode asmClassNode = MonitorVisitor.instrumentClass(file, outputFile, baseClassLoader, PatchVisitor.VISITOR_BUILDER)
                         if (asmClassNode == null) {
                             Plog.q "$className class node is empty."
                             return
@@ -364,6 +383,13 @@ class StarkTransform extends Transform {
             // do nothing
             Plog.q "Current stark scope is null. Do nothing."
         }
+
+        // first get all referenced input to construct a class loader capable of loading those
+        // classes. This is useful for ASM as it needs to load classes
+        List<URL> referencedInputUrls = getAllClassesLocations(invocation.getInputs(), invocation.getReferencedInputs())
+
+        URLClassLoader baseClassLoader = new NonDelegatingUrlClassloader(referencedInputUrls)
+
         def monitorClassFile = starkScope.getStarkBuildMonitorClassFile()
         monitorClassFile.createNewFile()
         invocation.inputs.each { input ->
@@ -382,7 +408,7 @@ class StarkTransform extends Transform {
                         monitorClassFile.append("->")
                         monitorClassFile.append(HashUtil.sha256(file.bytes).asHexString())
                         monitorClassFile.append("\n")
-                        AsmClassNode classNode = MonitorVisitor.instrumentClass(file, file, RedirectionVisitor.VISITOR_BUILDER)
+                        AsmClassNode classNode = MonitorVisitor.instrumentClass(file, file, baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
                         if (classNode == null) {
                             Plog.q "$className class node is empty."
                             return
@@ -479,4 +505,63 @@ class StarkTransform extends Transform {
         }
     }
 
+    /**
+     * Calculate a list of {@link URL} that represent all the directories containing classes
+     * either directly belonging to this project or referencing it.
+     *
+     * @param inputs the project's inputs
+     * @param referencedInputs the project's referenced inputs
+     * @return a {@link List} or {@link URL} for all the locations.
+     * @throws MalformedURLException if once the locatio
+     */
+    @NonNull
+    private List<URL> getAllClassesLocations(
+            @NonNull Collection<TransformInput> inputs,
+            @NonNull Collection<TransformInput> referencedInputs) throws MalformedURLException {
+
+        List<URL> referencedInputUrls = new ArrayList<>()
+
+        // add the bootstrap classpath for jars like android.jar
+//        for (File file : transformScope.getInstantRunBootClasspath()) {
+//            referencedInputUrls.add(file.toURI().toURL())
+//        }
+        // add android.jar classpath
+        String androidJarPath = AndroidClassPath.getAndroidJarPath(project, android)
+        referencedInputUrls.add(new File(androidJarPath).toURI().toURL())
+
+        // now add the project dependencies.
+        for (TransformInput referencedInput : referencedInputs) {
+            addAllClassLocations(referencedInput, referencedInputUrls)
+        }
+
+        // and finally add input folders.
+        for (TransformInput input : inputs) {
+            addAllClassLocations(input, referencedInputUrls)
+        }
+        return referencedInputUrls
+    }
+
+    private static void addAllClassLocations(TransformInput transformInput, List<URL> into)
+            throws MalformedURLException {
+
+        for (DirectoryInput directoryInput : transformInput.getDirectoryInputs()) {
+            into.add(directoryInput.getFile().toURI().toURL())
+        }
+        for (JarInput jarInput : transformInput.getJarInputs()) {
+            into.add(jarInput.getFile().toURI().toURL())
+        }
+    }
+
+    private static class NonDelegatingUrlClassloader extends URLClassLoader {
+
+        NonDelegatingUrlClassloader(@NonNull List<URL> urls) {
+            super(urls.toArray(new URL[urls.size()]))
+        }
+
+        @Override
+        URL getResource(String name) {
+            // Never delegate to bootstrap classes.
+            return findResource(name)
+        }
+    }
 }

@@ -206,7 +206,6 @@ package com.ximsfei.stark.gradle.asm.monitor;
 
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
-import com.android.utils.ILogger;
 import com.google.common.collect.ImmutableList;
 
 import org.objectweb.asm.ClassReader;
@@ -231,7 +230,7 @@ public class AsmUtils {
     /**
      * Abstraction for a provider for {@link ClassNode} instances for a class name.
      */
-    interface ClassNodeProvider {
+    public interface ClassNodeProvider {
 
         /**
          * load class bytes and return a {@link ClassNode}.
@@ -246,11 +245,11 @@ public class AsmUtils {
                 throws IOException;
     }
 
-    static class DirectoryBasedClassReader implements ClassNodeProvider {
+    public static class DirectoryBasedClassReader implements ClassNodeProvider {
 
         private final File binaryFolder;
 
-        DirectoryBasedClassReader(File binaryFolder) {
+        public DirectoryBasedClassReader(File binaryFolder) {
             this.binaryFolder = binaryFolder;
         }
 
@@ -259,41 +258,67 @@ public class AsmUtils {
         public ClassNode loadClassNode(@NonNull String className) {
             File outerClassFile = new File(binaryFolder, className + ".class");
             if (outerClassFile.exists()) {
-//                Plog.q("Parsing %s", outerClassFile)
-                try {
-
-                    InputStream outerClassInputStream =
-                            new BufferedInputStream(new FileInputStream(outerClassFile));
+//                logger.verbose("Parsing %s", outerClassFile);
+                try (InputStream outerClassInputStream =
+                             new BufferedInputStream(new FileInputStream(outerClassFile))) {
                     return readClass(new ClassReader(outerClassInputStream));
                 } catch (IOException e) {
-//                    logger.error(e, "Cannot parse %s", className)
+//                    logger.error(e, "Cannot parse %s", className);
                 }
             }
             return null;
         }
     }
 
-//    static final ClassNodeProvider classLoaderBasedProvider =
-//           new ClassNodeProvider {
-//    -> {
-//        ClassLoader classLoader = Thread.currentThread().getContextClassLoader()
-//        try (InputStream is = classLoader.getResourceAsStream(className + ".class") ) {
-//            if (is == null) {
-//                throw new IOException("Failed to find byte code for " + className)
-//            }
-//
-//            ClassReader classReader = new ClassReader(is)
-//            ClassNode node = new ClassNode()
-//            classReader.accept(node, ClassReader.EXPAND_FRAMES)
-//            return node
-//        }
-//    }
+    public static class ClassLoaderAndDirectoryBasedClassReader extends DirectoryBasedClassReader {
+        private final ClassLoader classLoader;
 
-    static class JarBasedClassReader implements ClassNodeProvider {
+        public ClassLoaderAndDirectoryBasedClassReader(ClassLoader classLoader, File binaryFolder) {
+            super(binaryFolder);
+            this.classLoader = classLoader;
+        }
+
+        @Override
+        public ClassNode loadClassNode(String className) {
+            ClassNode node = super.loadClassNode(className);
+            if (node == null) {
+                try (InputStream is = classLoader.getResourceAsStream(className + ".class")) {
+                    if (is == null) {
+                        throw new IOException("Failed to find byte code for " + className);
+                    }
+
+                    ClassReader classReader = new ClassReader(is);
+                    node = new ClassNode();
+                    classReader.accept(node, ClassReader.EXPAND_FRAMES);
+                    return node;
+                } catch (Exception e) {
+                    // logging
+                }
+            }
+            return node;
+        }
+    }
+
+    public static final ClassNodeProvider classLoaderBasedProvider =
+            (className) -> {
+                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+                try (InputStream is = classLoader.getResourceAsStream(className + ".class")) {
+                    if (is == null) {
+                        throw new IOException("Failed to find byte code for " + className);
+                    }
+
+                    ClassReader classReader = new ClassReader(is);
+                    ClassNode node = new ClassNode();
+                    classReader.accept(node, ClassReader.EXPAND_FRAMES);
+                    return node;
+                }
+            };
+
+    public static class JarBasedClassReader implements ClassNodeProvider {
 
         private final File file;
 
-        JarBasedClassReader(File file) {
+        public JarBasedClassReader(File file) {
             this.file = file;
         }
 
@@ -301,33 +326,37 @@ public class AsmUtils {
         @Override
         public ClassNode loadClassNode(@NonNull String className)
                 throws IOException {
-            JarFile jarFile = new JarFile(file);
-            ZipEntry entry = jarFile.getEntry(className.replace(".", "/") + ".class");
-            if (entry != null) {
-                InputStream is = jarFile.getInputStream(entry);
-                return readClass(new ClassReader(is));
+            try (JarFile jarFile = new JarFile(file)) {
+                ZipEntry entry = jarFile.getEntry(className.replace(".", "/") + ".class");
+                if (entry != null) {
+                    try (InputStream is = jarFile.getInputStream(entry)) {
+                        return readClass(new ClassReader(is));
+                    }
+                }
             }
-
             return null;
         }
     }
 
     @NonNull
-    static List<AnnotationNode> getInvisibleAnnotationsOnClassOrOuterClasses(
+    public static List<AnnotationNode> getInvisibleAnnotationsOnClassOrOuterClasses(
             @NonNull ClassNodeProvider classReader,
             @NonNull ClassNode classNode)
             throws IOException {
 
         ImmutableList.Builder<AnnotationNode> listBuilder = ImmutableList.builder();
-        while (classNode != null) {
+        do {
             @SuppressWarnings("unchecked")
             List<AnnotationNode> invisibleAnnotations = classNode.invisibleAnnotations;
             if (invisibleAnnotations != null) {
                 listBuilder.addAll(invisibleAnnotations);
             }
             String outerClassName = getOuterClassName(classNode);
-            classNode = outerClassName != null ? classReader.loadClassNode(outerClassName) : null;
-        }
+            classNode =
+                    outerClassName != null
+                            ? classReader.loadClassNode(outerClassName)
+                            : null;
+        } while (classNode != null);
         return listBuilder.build();
     }
 
@@ -342,7 +371,7 @@ public class AsmUtils {
      * @throws IOException when bytes cannot be read.
      */
     @Nullable
-    static AsmClassNode readClassAndInterfaces(
+    public static AsmClassNode readClassAndInterfaces(
             @NonNull ClassNodeProvider classReaderProvider,
             @NonNull String parentClassName,
             @NonNull String childClassName,
@@ -357,23 +386,23 @@ public class AsmUtils {
 //                            + "%2$s is not eligible for hot swap. \n"
 //                            + "If the class targets a more recent platform than %3$d,"
 //                            + " add a @TargetApi annotation to silence this warning.",
-//                    parentClassName, childClassName, targetApi)
+//                    parentClassName, childClassName, targetApi);
             return null;
         }
         // read the parent.
         AsmClassNode parentClassNode =
-                classNode.superName != null ?
-                        readClassAndInterfaces(
-                                classReaderProvider,
-                                classNode.superName,
-                                childClassName,
-                                targetApi)
+                classNode.superName != null
+                        ? readClassAndInterfaces(
+                        classReaderProvider,
+                        classNode.superName,
+                        childClassName,
+                        targetApi)
                         : null;
 
         // now read all implemented interfaces.
         ImmutableList.Builder<AsmInterfaceNode> interfaces = ImmutableList.builder();
         if (!readInterfaces(classNode, classReaderProvider, interfaces)) {
-            // if we cannot read any implemented interfaces, return null
+            // if we cannot read any implemented interfaces, return null;
             return null;
         }
         return new AsmClassNode(classNode, parentClassNode, interfaces.build());
@@ -400,12 +429,14 @@ public class AsmUtils {
         ImmutableList.Builder<AsmInterfaceNode> builder = ImmutableList.builder();
 
         if (interfaceNode != null) {
-            return readInterfaces(interfaceNode, classReaderProvider, builder) ? new AsmInterfaceNode(interfaceNode, builder.build()) : null;
+            return readInterfaces(interfaceNode, classReaderProvider, builder)
+                    ? new AsmInterfaceNode(interfaceNode, builder.build())
+                    : null;
         } else {
-//            Plog.q(
+//            logger.warning(
 //                    "Cannot load interface %$1s, which is implemented"
 //                            + "by %2$s, therefore %2$s will not be eligible for hotswap.",
-//                    interfaceName, classNode.name)
+//                    interfaceName, classNode.name);
             return null;
         }
     }
@@ -438,7 +469,7 @@ public class AsmUtils {
     }
 
     @NonNull
-    static ClassNode readClass(@NonNull ClassReader classReader) {
+    public static ClassNode readClass(@NonNull ClassReader classReader) {
         ClassNode node = new ClassNode();
         classReader.accept(node, ClassReader.EXPAND_FRAMES);
         return node;
@@ -452,7 +483,8 @@ public class AsmUtils {
             throws IOException {
 
         AsmClassNode parentedClassNode =
-                classNode.superName != null ? readClassAndInterfaces(
+                classNode.superName != null
+                        ? readClassAndInterfaces(
                         classBytesReader,
                         classNode.superName,
                         classNode.name,
@@ -469,7 +501,7 @@ public class AsmUtils {
     }
 
     @Nullable
-    public static ClassNode loadClass(
+    static ClassNode loadClass(
             @NonNull ClassNodeProvider classBytesReader,
             @NonNull String className)
             throws IOException {
@@ -478,14 +510,13 @@ public class AsmUtils {
         if (classNode != null) {
             return classNode;
         }
-        return null;//classLoaderBasedProvider.loadClassNode(className)
+        return classLoaderBasedProvider.loadClassNode(className);
     }
 
     @NonNull
-    static ClassNode readClass(ClassLoader classLoader, String className)
+    public static ClassNode readClass(ClassLoader classLoader, String className)
             throws IOException {
-        try {
-            InputStream is = classLoader.getResourceAsStream(className + ".class");
+        try (InputStream is = classLoader.getResourceAsStream(className + ".class")) {
             if (is == null) {
                 throw new IOException("Failed to find byte code for " + className);
             }
@@ -494,23 +525,21 @@ public class AsmUtils {
             ClassNode node = new ClassNode();
             parentClassReader.accept(node, ClassReader.EXPAND_FRAMES);
             return node;
-        } catch (Exception e) {
         }
-        return null;
     }
 
     @Nullable
-    static ClassNode parsePackageInfo(
+    public static ClassNode parsePackageInfo(
             @NonNull File inputFile) throws IOException {
 
         File packageFolder = inputFile.getParentFile();
         File packageInfoClass = new File(packageFolder, "package-info.class");
         if (packageInfoClass.exists()) {
-            InputStream reader = new BufferedInputStream(new FileInputStream(packageInfoClass));
-            ClassReader classReader = new ClassReader(reader);
-            return readClass(classReader);
+            try (InputStream reader = new BufferedInputStream(new FileInputStream(packageInfoClass))) {
+                ClassReader classReader = new ClassReader(reader);
+                return readClass(classReader);
+            }
         }
-
         return null;
     }
 
@@ -530,5 +559,4 @@ public class AsmUtils {
         }
         return null;
     }
-
 }
