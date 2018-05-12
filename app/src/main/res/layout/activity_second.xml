@@ -6,25 +6,10 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
-    <Button
-        android:id="@+id/go_second"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Go Second Activity"
-        android:textAllCaps="false" />
-
-    <Button
-        android:id="@+id/load"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="loadPatch"
-        android:textAllCaps="false" />
-
     <TextView
         android:id="@+id/content"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/fix_text"
         android:textAllCaps="false" />
 
 </LinearLayout>

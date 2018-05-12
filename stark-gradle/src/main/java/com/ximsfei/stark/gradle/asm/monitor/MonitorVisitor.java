@@ -228,8 +228,11 @@ import java.util.List;
 public class MonitorVisitor extends ClassVisitor {
     public static final String RUNTIME_PACKAGE = StarkConstants.STARK_CORE_RUNTIME_PACKAGE;
     public static final Type CHANGE_TYPE = Type.getObjectType(RUNTIME_PACKAGE + "/StarkChange");
-    protected static final Type INSTANT_RELOAD_EXCEPTION = Type.getObjectType(RUNTIME_PACKAGE + "/StarkReloadException");
     public static final Type TARGET_API_TYPE = Type.getObjectType("android/annotation/TargetApi");
+    protected static final Type INSTANT_RELOAD_EXCEPTION = Type.getObjectType(RUNTIME_PACKAGE + "/StarkReloadException");
+    protected static final Type RUNTIME_TYPE = Type.getObjectType(RUNTIME_PACKAGE + "/StarkRuntime");
+    public static final String ABSTRACT_PATCHES_LOADER_IMPL = RUNTIME_PACKAGE + "/AbstractPatchesLoaderImpl";
+    public static final String APP_PATCHES_LOADER_IMPL = RUNTIME_PACKAGE + "/StarkPatchesLoaderImpl";
 
     protected String visitedClassName;
     protected String visitedSuperName;
@@ -338,9 +341,10 @@ public class MonitorVisitor extends ClassVisitor {
         return (access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_BRIDGE | Opcodes.ACC_NATIVE)) == 0;
     }
 
-    public static AsmClassNode instrumentClass(@NonNull File inputFile, @NonNull VisitorBuilder builder) throws IOException {
+    public static AsmClassNode instrumentClass(@NonNull File inputFile, File outputFile, @NonNull VisitorBuilder builder) throws IOException {
         // if the class is not eligible for IR, return the non instrumented version or null if
         // the override class is requested.
+        Files.createParentDirs(outputFile);
         if (!isClassEligibleForStark(inputFile)) {
             return null;
         }
@@ -375,9 +379,9 @@ public class MonitorVisitor extends ClassVisitor {
                 if (c.isInterface() || d.isInterface()) {
                     return "java/lang/Object";
                 } else {
-                    while (!c.isAssignableFrom(d)) {
+                    do {
                         c = c.getSuperclass();
-                    }
+                    } while (!c.isAssignableFrom(d));
                     return c.getName().replace('.', '/');
                 }
             }
@@ -393,7 +397,7 @@ public class MonitorVisitor extends ClassVisitor {
             if (accessRight == AccessRight.PACKAGE_PRIVATE) {
                 classNode.access = classNode.access | Opcodes.ACC_PUBLIC;
                 classNode.accept(classWriter);
-                Files.write(classWriter.toByteArray(), inputFile);
+                Files.write(classWriter.toByteArray(), outputFile);
             }
             return null;
         }
@@ -418,7 +422,7 @@ public class MonitorVisitor extends ClassVisitor {
 
         MonitorVisitor visitor = builder.build(parentedClassNode, classWriter);
         classNode.accept(new SerialVersionUIDAdder(visitor));
-        Files.write(classWriter.toByteArray(), inputFile);
+        Files.write(classWriter.toByteArray(), outputFile);
         return parentedClassNode;
     }
 //

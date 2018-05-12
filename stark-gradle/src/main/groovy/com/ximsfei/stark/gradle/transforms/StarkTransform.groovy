@@ -205,6 +205,8 @@
 package com.ximsfei.stark.gradle.transforms
 
 import com.android.SdkConstants
+import com.android.annotations.NonNull
+import com.android.build.api.transform.DirectoryInput
 import com.android.build.api.transform.Format
 import com.android.build.api.transform.QualifiedContent
 import com.android.build.api.transform.Transform
@@ -212,6 +214,9 @@ import com.android.build.api.transform.TransformException
 import com.android.build.api.transform.TransformInvocation
 import com.android.build.api.transform.TransformOutputProvider
 import com.android.build.gradle.internal.pipeline.TransformManager
+import com.google.common.collect.ImmutableList
+import com.google.common.collect.ImmutableSet
+import com.google.common.io.Files
 import com.ximsfei.stark.gradle.StarkConstants
 import com.ximsfei.stark.gradle.asm.monitor.AsmClassNode
 import com.ximsfei.stark.gradle.asm.monitor.HashMethodNode
@@ -225,6 +230,9 @@ import groovy.io.FileType
 import org.apache.commons.io.FileUtils
 import org.gradle.internal.hash.HashUtil
 import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassWriter
+import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodNode
 
 class StarkTransform extends Transform {
@@ -273,10 +281,15 @@ class StarkTransform extends Transform {
             // do nothing
             Plog.q "Current stark scope is null. Do nothing."
         }
+        final ImmutableList.Builder<String> generatedClassesBuilder = ImmutableList.builder()
+        def patchFileDir = outputProvider.getContentLocation("enhanced_classes",
+                ImmutableSet.of(QualifiedContent.DefaultContentType.CLASSES),
+                getScopes(),
+                Format.DIRECTORY)
         invocation.inputs.each { input ->
-            input.directoryInputs.each {
-                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.DIRECTORY)
-                FileUtils.copyDirectory(it.file, dest)
+            input.directoryInputs.each { DirectoryInput inputDir ->
+                def dest = outputProvider.getContentLocation(inputDir.name, inputDir.contentTypes, inputDir.scopes, Format.DIRECTORY)
+//                FileUtils.copyDirectory(inputDir.file, dest)
                 if (starkScope == null) {
                     return
                 }
@@ -291,7 +304,7 @@ class StarkTransform extends Transform {
                         backupClassHashMap.put(splits[0], splits[1])
                     }
                 }
-                dest.eachFileRecurse(FileType.FILES) { file ->
+                inputDir.file.eachFileRecurse(FileType.FILES) { file ->
                     if (file.name.endsWith(SdkConstants.DOT_CLASS)) {
                         ClassReader classReader = new ClassReader(file.bytes)
                         String className = classReader.className.replace(File.separator, ".")
@@ -299,15 +312,17 @@ class StarkTransform extends Transform {
                         if (backupClassHashMap.get(className) == classHash) {
                             return
                         }
-                        AsmClassNode classNode = MonitorVisitor.instrumentClass(file, PatchVisitor.VISITOR_BUILDER)
-                        if (classNode == null) {
+                        File outputFile = new File(file.absolutePath.replace(inputDir.file.absolutePath, dest.absolutePath))
+                        AsmClassNode asmClassNode = MonitorVisitor.instrumentClass(file, outputFile, PatchVisitor.VISITOR_BUILDER)
+                        if (asmClassNode == null) {
                             Plog.q "$className class node is empty."
                             return
                         }
-                        if (classNode.classNode.methods.empty) {
+                        if (asmClassNode.classNode.methods.empty) {
                             Plog.q "$className methods is empty."
                             return
                         }
+                        generatedClassesBuilder.add(className)
                         def backupMethodFile = starkScope.getBackupMonitorMethodFile(className)
                         Map<String, String> backupMethodHashMap = [:]
                         backupMethodFile.eachLine { line ->
@@ -316,7 +331,7 @@ class StarkTransform extends Transform {
                                 backupMethodHashMap.put(splits[0], splits[1])
                             }
                         }
-                        classNode.classNode.methods.each { MethodNode methodNode ->
+                        asmClassNode.classNode.methods.each { MethodNode methodNode ->
                             String methodName = methodNode.name + methodNode.desc
                             String methodHash = HashMethodNode.generateMethodHashCode(className, methodNode)
                             if (backupMethodHashMap.get(methodName) != methodHash) {
@@ -328,9 +343,14 @@ class StarkTransform extends Transform {
             }
             input.jarInputs.each {
                 def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.JAR)
-                FileUtils.copyFile(it.file, dest)
+//                FileUtils.copyFile(it.file, dest)
+                if (starkScope == null) {
+                    return
+                }
             }
         }
+        ImmutableList<String> generatedClasses = generatedClassesBuilder.build()
+        writePatchFileContents(generatedClasses, patchFileDir, 1000l)
     }
 
     /**
@@ -362,7 +382,7 @@ class StarkTransform extends Transform {
                         monitorClassFile.append("->")
                         monitorClassFile.append(HashUtil.sha256(file.bytes).asHexString())
                         monitorClassFile.append("\n")
-                        AsmClassNode classNode = MonitorVisitor.instrumentClass(file, RedirectionVisitor.VISITOR_BUILDER)
+                        AsmClassNode classNode = MonitorVisitor.instrumentClass(file, file, RedirectionVisitor.VISITOR_BUILDER)
                         if (classNode == null) {
                             Plog.q "$className class node is empty."
                             return
@@ -392,4 +412,71 @@ class StarkTransform extends Transform {
             }
         }
     }
+
+    /**
+     * Use asm to generate a concrete subclass of the AppPathLoaderImpl class.
+     * It only implements one method :
+     *      String[] getPatchedClasses();
+     *
+     * The method is supposed to return the list of classes that were patched in this iteration.
+     * This will be used by the InstantRun runtime to load all patched classes and register them
+     * as overrides on the original classes.2 class files.
+     *
+     * @param patchFileContents list of patched class names.
+     * @param outputDir output directory where to generate the .class file in.
+     */
+    private static void writePatchFileContents(
+            @NonNull ImmutableList<String> patchFileContents,
+            @NonNull File outputDir, long buildId) {
+
+        ClassWriter cw = new ClassWriter(0);
+        MethodVisitor mv;
+
+        cw.visit(Opcodes.V1_6, Opcodes.ACC_PUBLIC + Opcodes.ACC_SUPER,
+                MonitorVisitor.APP_PATCHES_LOADER_IMPL, null,
+                MonitorVisitor.ABSTRACT_PATCHES_LOADER_IMPL, null);
+
+        // Add the build ID to force the patch file to be repackaged.
+        cw.visitField(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC + Opcodes.ACC_FINAL,
+                "BUILD_ID", "J", null, buildId);
+
+//        {
+        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        mv.visitCode();
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                MonitorVisitor.ABSTRACT_PATCHES_LOADER_IMPL,
+                "<init>", "()V", false);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(1, 1);
+        mv.visitEnd();
+//        }
+//        {
+        mv = cw.visitMethod(Opcodes.ACC_PUBLIC,
+                "getPatchedClasses", "()[Ljava/lang/String;", null, null);
+        mv.visitCode();
+        mv.visitIntInsn(Opcodes.BIPUSH, patchFileContents.size());
+        mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/String");
+        for (int index = 0; index < patchFileContents.size(); index++) {
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitIntInsn(Opcodes.BIPUSH, index);
+            mv.visitLdcInsn(patchFileContents.get(index));
+            mv.visitInsn(Opcodes.AASTORE);
+        }
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(4, 1);
+        mv.visitEnd();
+//        }
+        cw.visitEnd();
+
+        byte[] classBytes = cw.toByteArray();
+        File outputFile = new File(outputDir, MonitorVisitor.APP_PATCHES_LOADER_IMPL + ".class");
+        try {
+            Files.createParentDirs(outputFile);
+            Files.write(classBytes, outputFile);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }

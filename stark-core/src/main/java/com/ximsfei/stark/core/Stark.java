@@ -202,23 +202,29 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.app;
+package com.ximsfei.stark.core;
 
-import android.app.Activity;
-import android.os.Bundle;
-import android.util.Log;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.content.Context;
 
-public class SecondActivity extends Activity {
+import com.ximsfei.stark.core.runtime.PatchesLoader;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_second);
-        TextView content = findViewById(R.id.content);
-        content.setText("代码存在问题，尚未修复");
-//        Toast.makeText(this, "fixed", Toast.LENGTH_SHORT).show();
-        Log.e("SecondActivity", "content text = " + content.getText());
+import dalvik.system.DexClassLoader;
+
+public class Stark {
+    public void loadPatch(Context context, String path) {
+        DexClassLoader dexClassLoader = new DexClassLoader(path,
+                context.getCacheDir().getPath(), context.getCacheDir().getPath(),
+                getClass().getClassLoader());
+        try {
+            Class<?> aClass = Class.forName("com.ximsfei.stark.core.runtime.StarkPatchesLoaderImpl", true, dexClassLoader);
+            PatchesLoader patchesLoader = (PatchesLoader) aClass.newInstance();
+            patchesLoader.load();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
     }
 }

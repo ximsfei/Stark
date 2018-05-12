@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Stark</string>
-    <string name="fix_text">Error Text</string>
+    <string name="fix_text">资源存在问题，尚未修复</string>
 </resources>

@@ -202,23 +202,8 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.app;
+package com.ximsfei.stark.core.runtime;
 
-import android.app.Activity;
-import android.os.Bundle;
-import android.util.Log;
-import android.widget.TextView;
-import android.widget.Toast;
-
-public class SecondActivity extends Activity {
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_second);
-        TextView content = findViewById(R.id.content);
-        content.setText("代码存在问题，尚未修复");
-//        Toast.makeText(this, "fixed", Toast.LENGTH_SHORT).show();
-        Log.e("SecondActivity", "content text = " + content.getText());
-    }
+public interface PatchesLoader {
+    boolean load();
 }
