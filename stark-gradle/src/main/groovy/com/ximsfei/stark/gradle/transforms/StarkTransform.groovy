@@ -445,7 +445,7 @@ class StarkTransform extends Transform {
      *      String[] getPatchedClasses();
      *
      * The method is supposed to return the list of classes that were patched in this iteration.
-     * This will be used by the InstantRun runtime to load all patched classes and register them
+     * This will be used by the Stark runtime to load all patched classes and register them
      * as overrides on the original classes.2 class files.
      *
      * @param patchFileContents list of patched class names.

@@ -296,7 +296,7 @@ public class RedirectionVisitor extends MonitorVisitor {
         } else {
             super.visitField(fieldAccess, "$change", getRuntimeTypeName(CHANGE_TYPE), null, null);
         }
-        access = transformClassAccessForInstantRun(access);
+        access = transformClassAccessForStark(access);
         super.visit(version, access, name, signature, superName, interfaces);
     }
 
@@ -320,7 +320,7 @@ public class RedirectionVisitor extends MonitorVisitor {
     public FieldVisitor visitField(int access, String name, String desc, String signature,
                                    Object value) {
 
-        access = transformAccessForInstantRun(access);
+        access = transformAccessForStark(access);
         return super.visitField(access, name, desc, signature, value);
     }
 
@@ -333,7 +333,7 @@ public class RedirectionVisitor extends MonitorVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc, String signature,
                                      String[] exceptions) {
 
-        access = transformAccessForInstantRun(access);
+        access = transformAccessForStark(access);
 
         MethodVisitor defaultVisitor = super.visitMethod(access, name, desc, signature, exceptions);
         MethodNode method =
@@ -410,7 +410,7 @@ public class RedirectionVisitor extends MonitorVisitor {
      * @param access the original class/method/field access.
      * @return the new access or the same one depending on the original access rights.
      */
-    private static int transformClassAccessForInstantRun(int access) {
+    private static int transformClassAccessForStark(int access) {
         AccessRight accessRight = AccessRight.fromNodeAccess(access);
 
         return accessRight == AccessRight.PACKAGE_PRIVATE ? access | Opcodes.ACC_PUBLIC : access;
@@ -430,7 +430,7 @@ public class RedirectionVisitor extends MonitorVisitor {
      * @param access the original class/method/field access.
      * @return the new access or the same one depending on the original access rights.
      */
-    private static int transformAccessForInstantRun(int access) {
+    private static int transformAccessForStark(int access) {
         AccessRight accessRight = AccessRight.fromNodeAccess(access);
         if (accessRight != AccessRight.PRIVATE) {
             access &= ~Opcodes.ACC_PROTECTED;
