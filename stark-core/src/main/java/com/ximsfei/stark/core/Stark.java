@@ -205,26 +205,55 @@
 package com.ximsfei.stark.core;
 
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.res.Resources;
 
-import com.ximsfei.stark.core.runtime.PatchesLoader;
+import com.ximsfei.stark.core.runtime.PatchLoader;
+import com.ximsfei.stark.core.runtime.StarkConfig;
 
 import dalvik.system.DexClassLoader;
 
 public class Stark {
+    private static final Stark sInstance = new Stark();
+    private Resources mResources;
+
+    private Stark() {
+    }
+
+    public static Stark get() {
+        return sInstance;
+    }
+
     public void loadPatch(Context context, String path) {
+        StarkConfig.init(context);
         DexClassLoader dexClassLoader = new DexClassLoader(path,
                 context.getCacheDir().getPath(), context.getCacheDir().getPath(),
                 getClass().getClassLoader());
         try {
-            Class<?> aClass = Class.forName("com.ximsfei.stark.core.runtime.StarkPatchesLoaderImpl", true, dexClassLoader);
-            PatchesLoader patchesLoader = (PatchesLoader) aClass.newInstance();
-            patchesLoader.load();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
+            Class<?> aClass = Class.forName("com.ximsfei.stark.core.runtime.StarkPatchLoaderImpl",
+                    true, dexClassLoader);
+            PatchLoader patchLoader = (PatchLoader) aClass.newInstance();
+            boolean patchLoaded = patchLoader.load();
+            if (patchLoaded) {
+                loadResources(context, path);
+            }
+        } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void loadResources(Context context, String path) {
+        try {
+            ApplicationInfo info = context.getPackageManager().getPackageArchiveInfo(path, 0).applicationInfo;
+            info.sourceDir = path;
+            info.publicSourceDir = path;
+            mResources = context.getPackageManager().getResourcesForApplication(info);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public Resources getResources() {
+        return mResources;
     }
 }

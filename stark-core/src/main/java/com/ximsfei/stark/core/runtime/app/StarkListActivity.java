@@ -202,97 +202,16 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.core.runtime;
+package com.ximsfei.stark.core.runtime.app;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.concurrent.atomic.AtomicReference;
+import android.app.ListActivity;
+import android.content.Context;
 
-public abstract class AbstractPatchesLoaderImpl implements PatchesLoader {
+import com.ximsfei.stark.core.internal.StarkContextWrapper;
 
-    private final Method get;
-    private final Method set;
-
-    public AbstractPatchesLoaderImpl() throws NoSuchMethodException {
-        get = AtomicReference.class.getMethod("get");
-        set = AtomicReference.class.getMethod("set", Object.class);
-    }
-
-    public abstract String[] getPatchedClasses();
-
+public abstract class StarkListActivity extends ListActivity {
     @Override
-    public boolean load() {
-        for (String className : getPatchedClasses()) {
-            try {
-                ClassLoader cl = getClass().getClassLoader();
-                Class<?> aClass = cl.loadClass(className + "$override");
-                Object o = aClass.newInstance();
-
-                Class<?> originalClass = cl.loadClass(className);
-                Field changeField = originalClass.getDeclaredField("$change");
-                // force the field accessibility as the class might not be "visible"
-                // from this package.
-                changeField.setAccessible(true);
-
-                Object previous =
-                        originalClass.isInterface()
-                                ? patchInterface(changeField, o)
-                                : patchClass(changeField, o);
-
-                // If there was a previous change set, mark it as obsolete:
-                if (previous != null) {
-                    Field isObsolete = previous.getClass().getDeclaredField("$obsolete");
-                    if (isObsolete != null) {
-                        isObsolete.set(null, true);
-                    }
-                }
-
-//                if (logging != null && logging.isLoggable(Level.FINE)) {
-//                    logging.log(Level.FINE, String.format("patched %s", className));
-//                }
-            } catch (Exception e) {
-//                if (logging != null) {
-//                    logging.log(
-//                            Level.SEVERE,
-//                            String.format("Exception while patching %s", className),
-//                            e);
-//                }
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * When dealing with interfaces, the $change field is a final {@link
-     * AtomicReference} instance which contains the current patch class
-     * or null if it was never patched.
-     *
-     * @param changeField the $change field.
-     * @param patch       the patch class instance.
-     * @return the previous patch instance.
-     */
-    private Object patchInterface(Field changeField, Object patch)
-            throws IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-
-        Object atomicReference = changeField.get(null);
-        Object previous = get.invoke(atomicReference);
-        set.invoke(atomicReference, patch);
-        return previous;
-    }
-
-    /**
-     * When dealing with classes, the $change field is the patched class instance or null if it was
-     * never patched.
-     *
-     * @param changeField the $change field.
-     * @param patch       the patch class instance.
-     * @return the previous patch instance.
-     */
-    private Object patchClass(Field changeField, Object patch) throws IllegalAccessException {
-        Object previous = changeField.get(null);
-        changeField.set(null, patch);
-        return previous;
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(new StarkContextWrapper(newBase));
     }
 }

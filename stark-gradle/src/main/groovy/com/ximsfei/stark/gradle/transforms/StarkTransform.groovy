@@ -331,7 +331,8 @@ class StarkTransform extends Transform {
                         if (backupClassHashMap.get(className) == classHash) {
                             return
                         }
-                        File outputFile = new File(file.absolutePath.replace(inputDir.file.absolutePath, dest.absolutePath))
+                        File outputFile = new File(PatchVisitor.VISITOR_BUILDER.getMangledRelativeClassFilePath(
+                                file.absolutePath.replace(inputDir.file.absolutePath, dest.absolutePath)))
                         AsmClassNode asmClassNode = MonitorVisitor.instrumentClass(file, outputFile, baseClassLoader, PatchVisitor.VISITOR_BUILDER)
                         if (asmClassNode == null) {
                             Plog.q "$className class node is empty."
@@ -342,21 +343,21 @@ class StarkTransform extends Transform {
                             return
                         }
                         generatedClassesBuilder.add(className)
-                        def backupMethodFile = starkScope.getBackupMonitorMethodFile(className)
-                        Map<String, String> backupMethodHashMap = [:]
-                        backupMethodFile.eachLine { line ->
-                            def splits = line.split("->")
-                            if (splits.length == 2) {
-                                backupMethodHashMap.put(splits[0], splits[1])
-                            }
-                        }
-                        asmClassNode.classNode.methods.each { MethodNode methodNode ->
-                            String methodName = methodNode.name + methodNode.desc
-                            String methodHash = HashMethodNode.generateMethodHashCode(className, methodNode)
-                            if (backupMethodHashMap.get(methodName) != methodHash) {
-                                Plog.q "$className $methodName method is changed."
-                            }
-                        }
+//                        def backupMethodFile = starkScope.getBackupMonitorMethodFile(className)
+//                        Map<String, String> backupMethodHashMap = [:]
+//                        backupMethodFile.eachLine { line ->
+//                            def splits = line.split("->")
+//                            if (splits.length == 2) {
+//                                backupMethodHashMap.put(splits[0], splits[1])
+//                            }
+//                        }
+//                        asmClassNode.classNode.methods.each { MethodNode methodNode ->
+//                            String methodName = methodNode.name + methodNode.desc
+//                            String methodHash = HashMethodNode.generateMethodHashCode(className, methodNode)
+//                            if (backupMethodHashMap.get(methodName) != methodHash) {
+//                                Plog.q "$className $methodName method is changed."
+//                            }
+//                        }
                     }
                 }
             }
@@ -369,7 +370,7 @@ class StarkTransform extends Transform {
             }
         }
         ImmutableList<String> generatedClasses = generatedClassesBuilder.build()
-        writePatchFileContents(generatedClasses, patchFileDir, 1000l)
+        writePatchFileContents(generatedClasses, patchFileDir, starkScope.buildHash)
     }
 
     /**
@@ -409,23 +410,23 @@ class StarkTransform extends Transform {
                         monitorClassFile.append(HashUtil.sha256(file.bytes).asHexString())
                         monitorClassFile.append("\n")
                         AsmClassNode classNode = MonitorVisitor.instrumentClass(file, file, baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
-                        if (classNode == null) {
-                            Plog.q "$className class node is empty."
-                            return
-                        }
-                        if (classNode.classNode.methods.empty) {
-                            Plog.q "$className methods is empty."
-                            return
-                        }
-                        def monitorMethodFile = starkScope.getStarkBuildMonitorMethodFile(className)
-                        monitorMethodFile.createNewFile()
-                        classNode.classNode.methods.each { MethodNode methodNode ->
-                            monitorMethodFile.append(methodNode.name)
-                            monitorMethodFile.append(methodNode.desc)
-                            monitorMethodFile.append("->")
-                            monitorMethodFile.append(HashMethodNode.generateMethodHashCode(className, methodNode))
-                            monitorMethodFile.append("\n")
-                        }
+//                        if (classNode == null) {
+//                            Plog.q "$className class node is empty."
+//                            return
+//                        }
+//                        if (classNode.classNode.methods.empty) {
+//                            Plog.q "$className methods is empty."
+//                            return
+//                        }
+//                        def monitorMethodFile = starkScope.getStarkBuildMonitorMethodFile(className)
+//                        monitorMethodFile.createNewFile()
+//                        classNode.classNode.methods.each { MethodNode methodNode ->
+//                            monitorMethodFile.append(methodNode.name)
+//                            monitorMethodFile.append(methodNode.desc)
+//                            monitorMethodFile.append("->")
+//                            monitorMethodFile.append(HashMethodNode.generateMethodHashCode(className, methodNode))
+//                            monitorMethodFile.append("\n")
+//                        }
                     }
                 }
             }
@@ -453,55 +454,64 @@ class StarkTransform extends Transform {
      */
     private static void writePatchFileContents(
             @NonNull ImmutableList<String> patchFileContents,
-            @NonNull File outputDir, long buildId) {
+            @NonNull File outputDir, String buildHash) {
 
-        ClassWriter cw = new ClassWriter(0);
-        MethodVisitor mv;
+        ClassWriter cw = new ClassWriter(0)
+        MethodVisitor mv
 
         cw.visit(Opcodes.V1_6, Opcodes.ACC_PUBLIC + Opcodes.ACC_SUPER,
-                MonitorVisitor.APP_PATCHES_LOADER_IMPL, null,
-                MonitorVisitor.ABSTRACT_PATCHES_LOADER_IMPL, null);
+                MonitorVisitor.STARK_PATCH_LOADER_IMPL, null,
+                MonitorVisitor.ABSTRACT_PATCH_LOADER_IMPL, null)
 
         // Add the build ID to force the patch file to be repackaged.
-        cw.visitField(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC + Opcodes.ACC_FINAL,
-                "BUILD_ID", "J", null, buildId);
+//        cw.visitField(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC + Opcodes.ACC_FINAL,
+//                "BUILD_HASH", "Ljava/lang/String;", null, buildHash)
 
 //        {
-        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
-        mv.visitCode();
-        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null)
+        mv.visitCode()
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                MonitorVisitor.ABSTRACT_PATCHES_LOADER_IMPL,
-                "<init>", "()V", false);
-        mv.visitInsn(Opcodes.RETURN);
-        mv.visitMaxs(1, 1);
-        mv.visitEnd();
+                MonitorVisitor.ABSTRACT_PATCH_LOADER_IMPL,
+                "<init>", "()V", false)
+        mv.visitInsn(Opcodes.RETURN)
+        mv.visitMaxs(1, 1)
+        mv.visitEnd()
+//        }
+//        {
+        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "getBuildHash", "()Ljava/lang/String;", null, null)
+        mv.visitCode()
+        mv.visitVarInsn(Opcodes.ALOAD, 0)
+        mv.visitLdcInsn(buildHash)
+        mv.visitInsn(Opcodes.ARETURN)
+        mv.visitMaxs(1, 1)
+        mv.visitEnd()
 //        }
 //        {
         mv = cw.visitMethod(Opcodes.ACC_PUBLIC,
-                "getPatchedClasses", "()[Ljava/lang/String;", null, null);
-        mv.visitCode();
-        mv.visitIntInsn(Opcodes.BIPUSH, patchFileContents.size());
-        mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/String");
+                "getPatchedClasses", "()[Ljava/lang/String;", null, null)
+        mv.visitCode()
+        mv.visitIntInsn(Opcodes.BIPUSH, patchFileContents.size())
+        mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/String")
         for (int index = 0; index < patchFileContents.size(); index++) {
-            mv.visitInsn(Opcodes.DUP);
-            mv.visitIntInsn(Opcodes.BIPUSH, index);
-            mv.visitLdcInsn(patchFileContents.get(index));
-            mv.visitInsn(Opcodes.AASTORE);
+            mv.visitInsn(Opcodes.DUP)
+            mv.visitIntInsn(Opcodes.BIPUSH, index)
+            mv.visitLdcInsn(patchFileContents.get(index))
+            mv.visitInsn(Opcodes.AASTORE)
         }
-        mv.visitInsn(Opcodes.ARETURN);
-        mv.visitMaxs(4, 1);
-        mv.visitEnd();
+        mv.visitInsn(Opcodes.ARETURN)
+        mv.visitMaxs(4, 1)
+        mv.visitEnd()
 //        }
-        cw.visitEnd();
+        cw.visitEnd()
 
-        byte[] classBytes = cw.toByteArray();
-        File outputFile = new File(outputDir, MonitorVisitor.APP_PATCHES_LOADER_IMPL + ".class");
+        byte[] classBytes = cw.toByteArray()
+        File outputFile = new File(outputDir, MonitorVisitor.STARK_PATCH_LOADER_IMPL + ".class")
         try {
-            Files.createParentDirs(outputFile);
-            Files.write(classBytes, outputFile);
+            Files.createParentDirs(outputFile)
+            Files.write(classBytes, outputFile)
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException(e)
         }
     }
 

@@ -216,9 +216,12 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.SerialVersionUIDAdder;
+import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.FieldNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.io.File;
@@ -231,8 +234,8 @@ public class MonitorVisitor extends ClassVisitor {
     public static final Type TARGET_API_TYPE = Type.getObjectType("android/annotation/TargetApi");
     protected static final Type INSTANT_RELOAD_EXCEPTION = Type.getObjectType(RUNTIME_PACKAGE + "/StarkReloadException");
     protected static final Type RUNTIME_TYPE = Type.getObjectType(RUNTIME_PACKAGE + "/StarkRuntime");
-    public static final String ABSTRACT_PATCHES_LOADER_IMPL = RUNTIME_PACKAGE + "/AbstractPatchesLoaderImpl";
-    public static final String APP_PATCHES_LOADER_IMPL = RUNTIME_PACKAGE + "/StarkPatchesLoaderImpl";
+    public static final String ABSTRACT_PATCH_LOADER_IMPL = RUNTIME_PACKAGE + "/AbstractPatchLoaderImpl";
+    public static final String STARK_PATCH_LOADER_IMPL = RUNTIME_PACKAGE + "/StarkPatchLoaderImpl";
 
     protected String visitedClassName;
     protected String visitedSuperName;
@@ -406,6 +409,8 @@ public class MonitorVisitor extends ClassVisitor {
 
         AsmUtils.DirectoryBasedClassReader directoryClassReader =
                 new AsmUtils.ClassLoaderAndDirectoryBasedClassReader(baseClassLoader, getBinaryFolder(inputFile, classNode));
+
+        SuperClassRedirection.redirect(classNode);
 
         // if we are targeting a more recent version than the current device, disable instant run
         // for that class.
@@ -603,7 +608,7 @@ public class MonitorVisitor extends ClassVisitor {
     static boolean isClassEligibleForStark(@NonNull File inputFile) {
         if (inputFile.getPath().endsWith(SdkConstants.DOT_CLASS)) {
             String fileName = inputFile.getName();
-            return fileName != ("R" + SdkConstants.DOT_CLASS) && !fileName.startsWith("R$");
+            return !fileName.equals("R" + SdkConstants.DOT_CLASS) && !fileName.startsWith("R$");
         } else {
             return false;
         }

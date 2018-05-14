@@ -214,13 +214,14 @@ import java.util.logging.Logger;
 
 /**
  * Generic Instant Run services. must not depend on Android APIs.
- *
+ * <p>
  * TODO: transform this static methods into interface/implementation.
  */
 @SuppressWarnings("unused")
 public class StarkRuntime {
 
     static Logging logging;
+
     protected interface Logging {
         void log(Level level, String string);
 
@@ -233,21 +234,20 @@ public class StarkRuntime {
 
     }
 
-    
     public static Object getStaticPrivateField(Class targetClass, String fieldName) {
         return getPrivateField(null /* targetObject */, targetClass, fieldName);
     }
 
     public static void setStaticPrivateField(
-            Object value, Class targetClass,  String fieldName) {
+            Object value, Class targetClass, String fieldName) {
         setPrivateField(null /* targetObject */, value, targetClass, fieldName);
     }
 
     public static void setPrivateField(
             Object targetObject,
-             Object value,
+            Object value,
             Class targetClass,
-             String fieldName) {
+            String fieldName) {
 
         try {
             Field declaredField = getField(targetClass, fieldName);
@@ -261,11 +261,10 @@ public class StarkRuntime {
         }
     }
 
-    
     public static Object getPrivateField(
             Object targetObject,
             Class targetClass,
-             String fieldName) {
+            String fieldName) {
 
         try {
             Field declaredField = getField(targetClass, fieldName);
@@ -291,11 +290,11 @@ public class StarkRuntime {
     }
 
     public static Object invokeProtectedMethod(Object receiver,
-            Object[] params,
-            Class[] parameterTypes,
-            String methodName) throws Throwable {
+                                               Object[] params,
+                                               Class[] parameterTypes,
+                                               String methodName) throws Throwable {
 
-        if (logging!=null && logging.isLoggable(Level.FINE)) {
+        if (logging != null && logging.isLoggable(Level.FINE)) {
             logging.log(Level.FINE, String.format("protectedMethod:%s on %s", methodName, receiver));
         }
         try {
@@ -320,7 +319,7 @@ public class StarkRuntime {
             String methodName,
             Class receiverClass) throws Throwable {
 
-        if (logging!=null && logging.isLoggable(Level.FINE)) {
+        if (logging != null && logging.isLoggable(Level.FINE)) {
             logging.log(Level.FINE,
                     String.format("protectedStaticMethod:%s on %s", methodName, receiverClass.getName()));
         }
@@ -367,7 +366,7 @@ public class StarkRuntime {
 
     private static Field getFieldByName(Class<?> aClass, String name) {
 
-        if (logging!= null && logging.isLoggable(Level.FINE)) {
+        if (logging != null && logging.isLoggable(Level.FINE)) {
             logging.log(Level.FINE, String.format("getFieldByName:%s in %s", name, aClass.getName()));
         }
 
@@ -397,7 +396,7 @@ public class StarkRuntime {
                 // ignored.
             }
             currentClass = currentClass.getSuperclass();
-            if (currentClass!= null && logging!=null && logging.isLoggable(Level.FINE)) {
+            if (currentClass != null && logging != null && logging.isLoggable(Level.FINE)) {
                 logging.log(Level.FINE, String.format(
                         "getMethodByName:Looking in %s now", currentClass.getName()));
             }

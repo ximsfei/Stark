@@ -202,51 +202,102 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.app;
+package com.ximsfei.stark.core.runtime;
 
-import android.app.Activity;
-import android.content.Context;
-import android.content.ContextWrapper;
-import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.content.res.AssetManager;
-import android.content.res.Resources;
-import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
-import android.widget.Toast;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicReference;
 
-import com.ximsfei.stark.core.Stark;
-import com.ximsfei.stark.core.runtime.StarkConfig;
+public abstract class AbstractPatchLoaderImpl implements PatchLoader {
 
-import java.io.File;
+    private final Method get;
+    private final Method set;
 
-public class MainActivity extends Activity {
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        Button goSecond = findViewById(R.id.go_second);
-        goSecond.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, SecondActivity.class);
-                startActivity(intent);
-            }
-        });
-        Button load = findViewById(R.id.load);
-        load.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Stark.get().loadPatch(getApplication(), getPatchPath(MainActivity.this));
-                recreate();
-            }
-        });
+    public AbstractPatchLoaderImpl() throws NoSuchMethodException {
+        get = AtomicReference.class.getMethod("get");
+        set = AtomicReference.class.getMethod("set", Object.class);
     }
 
-    private String getPatchPath(Context context) {
-        return "/sdcard/Android/data/" + context.getPackageName() + "/fix.apk";
+    public abstract String getBuildHash();
+
+    public abstract String[] getPatchedClasses();
+
+    @Override
+    public boolean load() {
+        if (!StarkConfig.BUILD_HASH.equals(getBuildHash())) {
+            return false;
+        }
+        for (String className : getPatchedClasses()) {
+            try {
+                ClassLoader cl = getClass().getClassLoader();
+                Class<?> aClass = cl.loadClass(className + "$override");
+                Object o = aClass.newInstance();
+
+                Class<?> originalClass = cl.loadClass(className);
+                Field changeField = originalClass.getDeclaredField("$change");
+                // force the field accessibility as the class might not be "visible"
+                // from this package.
+                changeField.setAccessible(true);
+
+                Object previous =
+                        originalClass.isInterface()
+                                ? patchInterface(changeField, o)
+                                : patchClass(changeField, o);
+
+                // If there was a previous change set, mark it as obsolete:
+                if (previous != null) {
+                    Field isObsolete = previous.getClass().getDeclaredField("$obsolete");
+                    if (isObsolete != null) {
+                        isObsolete.set(null, true);
+                    }
+                }
+
+//                if (logging != null && logging.isLoggable(Level.FINE)) {
+//                    logging.log(Level.FINE, String.format("patched %s", className));
+//                }
+            } catch (Exception e) {
+//                if (logging != null) {
+//                    logging.log(
+//                            Level.SEVERE,
+//                            String.format("Exception while patching %s", className),
+//                            e);
+//                }
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * When dealing with interfaces, the $change field is a final {@link
+     * AtomicReference} instance which contains the current patch class
+     * or null if it was never patched.
+     *
+     * @param changeField the $change field.
+     * @param patch       the patch class instance.
+     * @return the previous patch instance.
+     */
+    private Object patchInterface(Field changeField, Object patch)
+            throws IllegalAccessException, NoSuchMethodException, InvocationTargetException {
+
+        Object atomicReference = changeField.get(null);
+        Object previous = get.invoke(atomicReference);
+        set.invoke(atomicReference, patch);
+        return previous;
+    }
+
+    /**
+     * When dealing with classes, the $change field is the patched class instance or null if it was
+     * never patched.
+     *
+     * @param changeField the $change field.
+     * @param patch       the patch class instance.
+     * @return the previous patch instance.
+     */
+    private Object patchClass(Field changeField, Object patch) throws IllegalAccessException {
+        Object previous = changeField.get(null);
+        changeField.set(null, patch);
+        return previous;
     }
 }

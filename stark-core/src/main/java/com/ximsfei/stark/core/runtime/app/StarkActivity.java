@@ -202,8 +202,16 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.core.runtime;
+package com.ximsfei.stark.core.runtime.app;
 
-public interface PatchesLoader {
-    boolean load();
+import android.app.Activity;
+import android.content.Context;
+
+import com.ximsfei.stark.core.internal.StarkContextWrapper;
+
+public abstract class StarkActivity extends Activity {
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(new StarkContextWrapper(newBase));
+    }
 }
