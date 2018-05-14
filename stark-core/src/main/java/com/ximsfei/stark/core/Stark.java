@@ -210,6 +210,15 @@ import android.content.res.Resources;
 
 import com.ximsfei.stark.core.runtime.PatchLoader;
 import com.ximsfei.stark.core.runtime.StarkConfig;
+import com.ximsfei.stark.core.util.ZipUtils;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Enumeration;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 import dalvik.system.DexClassLoader;
 
@@ -244,11 +253,52 @@ public class Stark {
 
     private void loadResources(Context context, String path) {
         try {
-            ApplicationInfo info = context.getPackageManager().getPackageArchiveInfo(path, 0).applicationInfo;
+            ApplicationInfo info = context.getApplicationInfo();
+            String installedPath = info.sourceDir;
+            mergeResources(path, installedPath);
             info.sourceDir = path;
             info.publicSourceDir = path;
             mResources = context.getPackageManager().getResourcesForApplication(info);
         } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void mergeResources(String patchPath, String installedPath) {
+        File patchApkFile = new File(patchPath);
+        File mergedFile = new File(patchApkFile.getParent(), "merged.apk");
+        File installedFile = new File(installedPath);
+        if (!patchApkFile.exists() || !installedFile.exists()) {
+            return;
+        }
+        try {
+            ZipFile patchApk = new ZipFile(patchApkFile);
+            ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(mergedFile));
+            ZipFile installedApk = new ZipFile(installedFile);
+            Enumeration<? extends ZipEntry> entries = installedApk.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                String name = entry.getName();
+                ZipEntry patchEntry = patchApk.getEntry(name);
+                if (name.startsWith("assets/")
+                        || name.startsWith("res/")
+                        || name.equals("AndroidManifest.xml")) {
+                    if (patchEntry == null) {
+                        ZipUtils.writeEntry(installedApk, zos, entry);
+                    } else {
+                        ZipUtils.writeEntry(patchApk, zos, patchEntry);
+                    }
+                } else if (name.equals("resources.arsc")) {
+                    ZipUtils.writeEntry(patchApk, zos, patchEntry);
+                }
+            }
+            patchApk.close();
+            installedApk.close();
+            zos.flush();
+            zos.close();
+            patchApkFile.delete();
+            mergedFile.renameTo(patchApkFile);
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

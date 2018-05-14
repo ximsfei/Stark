@@ -205,10 +205,16 @@
 package com.ximsfei.stark.gradle.task.sys
 
 import com.android.build.gradle.api.ApkVariant
+import com.android.sdklib.BuildToolInfo
 import com.ximsfei.stark.gradle.scope.GlobalScope
 import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.TaskManager
+import com.ximsfei.stark.gradle.util.AaptUtils
+import com.ximsfei.stark.gradle.util.Plog
+import groovy.io.FileType
+import org.apache.commons.io.FileUtils
 import org.gradle.api.DefaultTask
+import org.gradle.internal.hash.HashUtil
 
 class AssembleTask extends SysTask<DefaultTask> {
 
@@ -228,11 +234,83 @@ class AssembleTask extends SysTask<DefaultTask> {
 
     @Override
     void afterExecute() {
+        File apkFile = variant.outputs[0].outputFile
         if (GlobalScope.isGeneratePatch) {
+            def backupApkFile = starkScope.getBackupApkFile()
+            if (backupApkFile == null || !backupApkFile.exists()) {
+                Plog.q "backupApkFile $backupApkFile is not exists."
+                return
+            }
+            File unzipApkDir = AaptUtils.unzipApFile(project, apkFile.parentFile, apkFile, "apk_unzip")
+            File unzipBackupApkDir = AaptUtils.unzipApFile(project, apkFile.parentFile, backupApkFile, "backup_apk_unzip")
+
+            doPatch(apkFile, unzipApkDir, unzipBackupApkDir)
+
+            FileUtils.deleteDirectory(unzipApkDir)
+            FileUtils.deleteDirectory(unzipBackupApkDir)
             return
+        } else {
+            FileUtils.copyFile(apkFile, starkScope.getStarkBuildApkFile())
         }
         if (stark.autoBackup) {
             manager.doBackup(variant, starkScope)
         }
+    }
+
+    /**
+     * ###################################
+     * patch.
+     */
+    def doPatch(File apkFile, File unzipApkDir, File unzipBackupApkDir) {
+        Set<String> filteredResources = []
+        Set<String> updatedResources = []
+        int len = unzipApkDir.canonicalPath.length() + 1
+        def isWindows = (File.separator != '/')
+        unzipApkDir.eachFileRecurse(FileType.FILES) { file ->
+            def path = file.canonicalPath.substring(len)
+            if (isWindows) { // compat for windows
+                path = path.replaceAll('\\\\', '/')
+            }
+            File backupFile = new File(file.absolutePath.replace(unzipApkDir.absolutePath, unzipBackupApkDir.absolutePath))
+            if (path != "resources.arsc"
+                    && path != "AndroidManifest.xml"
+                    && !path.startsWith("assets")
+                    && !path.startsWith("res")) {
+//                Plog.q "filter 1 resources $path."
+                filteredResources.add(path)
+            } else if (path.endsWith(".dex")) {
+                // skip
+//                Plog.q "skip resources $path."
+            } else if (!backupFile.exists()) {
+                updatedResources.add(path)
+                Plog.q "add resources $path."
+            } else if (HashUtil.sha256(file.bytes) != HashUtil.sha256(backupFile.bytes)) {
+                Plog.q "updated resources $path."
+                updatedResources.add(path)
+                filteredResources.add(path)
+                if (file.name == "resources.arsc") {
+
+                }
+            } else {
+//                Plog.q "filter resources $path."
+                filteredResources.add(path)
+            }
+        }
+
+        String aaptExe = variant
+                .variantData
+                .scope
+                .globalScope
+                .androidBuilder
+                .targetInfo
+                .buildTools
+                .getPath(BuildToolInfo.PathId.AAPT)
+        AaptUtils.updateApFile(
+                project,
+                aaptExe,
+                apkFile,
+                unzipApkDir,
+                updatedResources,
+                filteredResources)
     }
 }

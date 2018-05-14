@@ -15,13 +15,13 @@ class SuperClassRedirection {
     private static final HashMap<String, String> SUPER_REDIRECT_MAP = new HashMap<>();
 
     static {
-        SUPER_REDIRECT_MAP.put("android/app/Application", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/StarkApplication");
-        SUPER_REDIRECT_MAP.put("android/app/Activity", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/StarkActivity");
-        SUPER_REDIRECT_MAP.put("android/app/ListActivity", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/StarkListActivity");
-        SUPER_REDIRECT_MAP.put("android/app/NativeActivity", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/StarkNativeActivity");
-        SUPER_REDIRECT_MAP.put("android/app/ExpandableListActivity", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/StarkExpandableListActivity");
-        SUPER_REDIRECT_MAP.put("android/app/Service", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/StarkService");
-        SUPER_REDIRECT_MAP.put("android/app/IntentService", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/StarkIntentService");
+        SUPER_REDIRECT_MAP.put("android/app/Application", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/app/StarkApplication");
+        SUPER_REDIRECT_MAP.put("android/app/Activity", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/app/StarkActivity");
+        SUPER_REDIRECT_MAP.put("android/app/ListActivity", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/app/StarkListActivity");
+        SUPER_REDIRECT_MAP.put("android/app/NativeActivity", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/app/StarkNativeActivity");
+        SUPER_REDIRECT_MAP.put("android/app/ExpandableListActivity", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/app/StarkExpandableListActivity");
+        SUPER_REDIRECT_MAP.put("android/app/Service", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/app/StarkService");
+        SUPER_REDIRECT_MAP.put("android/app/IntentService", StarkConstants.STARK_CORE_RUNTIME_PACKAGE + "/app/StarkIntentService");
     }
 
     static void redirect(ClassNode classNode) {

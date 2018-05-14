@@ -214,14 +214,24 @@ import com.ximsfei.stark.gradle.aapt.SymbolParser
 import com.ximsfei.stark.gradle.exception.StarkException
 import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.TaskManager
+import com.ximsfei.stark.gradle.util.AaptUtils
 import com.ximsfei.stark.gradle.util.Plog
 import com.ximsfei.stark.gradle.util.ZipUtils
 import groovy.io.FileType
+import org.apache.commons.io.FileUtils
 import org.gradle.api.file.FileTree
+import org.gradle.internal.hash.HashUtil
 
 class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
     private static final int UNSET_TYPEID = 99
     private static final int UNSET_ENTRYID = -1
+
+    // Unpack resources.ap_
+    private File apFile
+    // R.txt
+    private File rTxtFile
+    // R.java
+    private def rJavaFileList = []
 
     private int gPackageId = 0x7f
 
@@ -249,19 +259,28 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
 
     @Override
     void afterExecute() {
+        collectResourcesFile()
+
         if (GlobalScope.isGeneratePatch) {
             def publicTxtFile = starkScope.getBackupPublicTxt()
             if (!publicTxtFile.exists() || publicTxtFile.getText() == "") {
                 throw new StarkException("To generate patch, public.txt not exists!")
             }
-            hookAapt(android, task, publicTxtFile)
+
+            def unzipApDir = AaptUtils.unzipApFile(project, apFile.parentFile, apFile, "ap_unzip")
+            fixResId(android, unzipApDir, publicTxtFile)
+            FileUtils.deleteDirectory(unzipApDir)
         } else {
+            if (rTxtFile == null || !rTxtFile.exists()) {
+                Plog.q "rTxtFile $rTxtFile is not exists."
+                return
+            }
             def publicTxtFile = starkScope.getStarkBuildPublicTxtFile()
             if (!publicTxtFile.exists()) {
                 publicTxtFile.createNewFile()
             }
             def publicPw = new PrintWriter(publicTxtFile.newWriter(false))
-            task.textSymbolOutputFile.readLines().each { line ->
+            rTxtFile.readLines().each { line ->
                 if (!line.startsWith("int[] styleable") && !line.startsWith("int styleable")) {
                     publicPw.println(line)
                 }
@@ -271,19 +290,8 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
         }
     }
 
-    /**
-     * Hook aapt task to slice asset package and resolve library resource ids
-     */
-    def hookAapt(AppExtension android, ProcessAndroidResources aaptTask, File publicTxtFile) {
-        // Unpack resources.ap_
-        File apFile
-        // R.txt
-        File rTxtFile
-        // R.java
-        List<File> rJavaFileList = []
-        // public.txt
-        Plog.q "public text file: $publicTxtFile"
-        aaptTask.outputs.files.each { file ->
+    private def collectResourcesFile() {
+        task.outputs.files.each { file ->
             if (file.directory) {
                 file.eachFileRecurse(FileType.FILES) {
                     if (it.absolutePath.endsWith(File.separator + "R.java")) {
@@ -305,20 +313,18 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
                 apFile = file
             }
         }
-        if (apFile == null || rTxtFile == null || rJavaFileList.empty) {
-            return
-        }
-        FileTree apFiles = project.zipTree(apFile)
-        File unzipApDir = new File(apFile.parentFile, 'ap_unzip')
-        unzipApDir.delete()
-        project.copy {
-            from apFiles
-            into unzipApDir
 
-            include 'AndroidManifest.xml'
-            include 'resources.arsc'
-            include 'res/**/*'
+        if (apFile == null || rTxtFile == null || rJavaFileList.empty) {
+            throw new StarkException("apFile: $apFile || rTxtFile: $rTxtFile || rJavaFileList not exists!")
         }
+    }
+
+    /**
+     * Hook aapt task to slice asset package and resolve library resource ids
+     */
+    def fixResId(AppExtension android, File unzipApDir, File publicTxtFile) {
+        // public.txt
+        Plog.q "public text file: $publicTxtFile"
 
         // Modify assets
         prepareSplit(rTxtFile, publicTxtFile)
@@ -355,39 +361,14 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
             }
         }
 
-        String aaptExe = aaptTask.buildTools.getPath(BuildToolInfo.PathId.AAPT)
-
         // Delete filtered entries.
         // Cause there is no `aapt update' command supported, so for the updated resources
         // we also delete first and run `aapt add' later.
         filteredResources.addAll(updatedResources)
-        ZipUtils.with(apFile).deleteAll(filteredResources)
-
-        // Re-add updated entries.
-        // $ aapt add resources.ap_ file1 file2 ...
-        def nullOutput = new ByteArrayOutputStream()
-        if (System.properties['os.name'].toLowerCase().contains('windows')) {
-            // Avoid the command becomes too long to execute on Windows.
-            updatedResources.each { res ->
-                project.exec {
-                    executable aaptExe
-                    workingDir unzipApDir
-                    args 'add', apFile.path, res
-
-                    standardOutput = nullOutput
-                }
-            }
-        } else {
-            project.exec {
-                executable aaptExe
-                workingDir unzipApDir
-                args 'add', apFile.path
-                args updatedResources
-
-                // store the output instead of printing to the console
-                standardOutput = nullOutput
-            }
-        }
+        AaptUtils.updateApFile(
+                project, task.buildTools.getPath(BuildToolInfo.PathId.AAPT),
+                apFile, unzipApDir,
+                updatedResources, filteredResources)
     }
 
     /**

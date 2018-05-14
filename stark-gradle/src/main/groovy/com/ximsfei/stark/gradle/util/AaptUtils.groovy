@@ -202,124 +202,55 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.gradle.scope
+package com.ximsfei.stark.gradle.util
 
-import com.android.build.gradle.api.ApkVariant
-import com.ximsfei.stark.gradle.StarkConstants
-import com.ximsfei.stark.gradle.exception.StarkException
-import com.ximsfei.stark.gradle.task.sys.AssembleTask
-import com.ximsfei.stark.gradle.task.sys.GenerateStarkConfigTask
-import com.ximsfei.stark.gradle.task.sys.ProcessResourcesTask
-import com.ximsfei.stark.gradle.util.Plog
 import org.gradle.api.Project
+import org.gradle.api.file.FileTree
 
-class StarkVariantScope {
-    Project project
-    ApkVariant variant
-    GenerateStarkConfigTask generateStarkConfig
-    ProcessResourcesTask processResources
-    AssembleTask assemble
-    private String buildHash
+class AaptUtils {
+    static def unzipApFile(Project project, File parentFile, File apFile, String childDir) {
+        FileTree apFiles = project.zipTree(apFile)
+        File unzipApDir = new File(parentFile, childDir)
+        unzipApDir.delete()
+        project.copy {
+            from apFiles
+            into unzipApDir
 
-    StarkVariantScope(Project project, ApkVariant variant) {
-        this.project = project
-        this.variant = variant
+            include 'AndroidManifest.xml'
+            include 'resources.arsc'
+            include 'res/**/*'
+        }
+        unzipApDir
     }
 
-    def getBuildHash() {
-        if (buildHash == null || buildHash == "") {
-            if (GlobalScope.isGeneratePatch) {
-                def buildHashFile = getBackupHashFile()
-                if (buildHashFile.exists()) {
-                    buildHash = buildHashFile.getText().trim()
-                    if (buildHash == null || buildHash == "") {
-                        throw new StarkException("To generate patch, build hash cannot empty!")
-                    }
-                } else {
-                    throw new StarkException("To generate patch, build hash file not exists!")
+    static def updateApFile(Project project, String aaptExe, File apFile, File unzipApDir,
+                            Set<String> updatedResources, Set<String> filteredResources) {
+        ZipUtils.with(apFile).deleteAll(filteredResources)
+
+        // Re-add updated entries.
+        // $ aapt add resources.ap_ file1 file2 ...
+        def nullOutput = new ByteArrayOutputStream()
+        if (System.properties['os.name'].toLowerCase().contains('windows')) {
+            // Avoid the command becomes too long to execute on Windows.
+            updatedResources.each { res ->
+                project.exec {
+                    executable aaptExe
+                    workingDir unzipApDir
+                    args 'add', apFile.path, res
+
+                    standardOutput = nullOutput
                 }
-            } else {
-                buildHash = UUID.randomUUID()
             }
-            Plog.q "${project.name} ${variant.buildType.name} build hash $buildHash"
+        } else {
+            project.exec {
+                executable aaptExe
+                workingDir unzipApDir
+                args 'add', apFile.path
+                args updatedResources
+
+                // store the output instead of printing to the console
+                standardOutput = nullOutput
+            }
         }
-        buildHash
-    }
-
-    def getStarkBuildDir() {
-        def starkDir = new File(project.getBuildDir(), StarkConstants.STARK_DIR)
-        def buildTypeDir = new File(starkDir, variant.buildType.name)
-        if (!buildTypeDir.exists()) {
-            buildTypeDir.mkdirs()
-        }
-        buildTypeDir
-    }
-
-    def getStarkBuildMonitorDir() {
-        def monitorDir = new File(getStarkBuildDir(), StarkConstants.STARK_MONITOR_DIR)
-        if (!monitorDir.exists()) {
-            monitorDir.mkdirs()
-        }
-        monitorDir
-    }
-
-    def getStarkBuildMonitorClassFile() {
-        new File(getStarkBuildMonitorDir(), StarkConstants.STARK_MONITOR_CLASS)
-    }
-
-    def getStarkBuildMonitorMethodFile(String className) {
-        new File(getStarkBuildMonitorDir(), className)
-    }
-
-    def getStarkBuildHashFile() {
-        new File(getStarkBuildDir(), StarkConstants.STARK_BUILD_HASH_FILE)
-    }
-
-    def getStarkBuildPublicTxtFile() {
-        new File(getStarkBuildDir(), StarkConstants.STARK_PUBLIC_TXT_FILE)
-    }
-
-    def getStarkBuildApkFile() {
-        new File(getStarkBuildDir(), StarkConstants.STARK_BUILD_APK_FILE)
-    }
-
-    File getBackupDir() {
-        def starkDir = new File(project.getProjectDir(), StarkConstants.STARK_DIR)
-        def appDir = new File(starkDir, variant.applicationId)
-        def versionCodeDir = new File(appDir, String.valueOf(variant.versionCode))
-        def backupDir = new File(versionCodeDir, StarkConstants.STARK_BACKUP_DIR)
-        def buildTypeDir = new File(backupDir, variant.buildType.name)
-        if (!buildTypeDir.exists()) {
-            buildTypeDir.mkdirs()
-        }
-        buildTypeDir
-    }
-
-    def getBackupMonitorDir() {
-        def monitorDir = new File(getBackupDir(), StarkConstants.STARK_MONITOR_DIR)
-        if (!monitorDir.exists()) {
-            monitorDir.mkdirs()
-        }
-        monitorDir
-    }
-
-    def getBackupMonitorClassFile() {
-        new File(getBackupMonitorDir(), StarkConstants.STARK_MONITOR_CLASS)
-    }
-
-    def getBackupMonitorMethodFile(String className) {
-        new File(getBackupMonitorDir(), className)
-    }
-
-    File getBackupHashFile() {
-        new File(getBackupDir(), StarkConstants.STARK_BUILD_HASH_FILE)
-    }
-
-    File getBackupPublicTxt() {
-        new File(getBackupDir(), StarkConstants.STARK_PUBLIC_TXT_FILE)
-    }
-
-    def getBackupApkFile() {
-        new File(getBackupDir(), StarkConstants.STARK_BUILD_APK_FILE)
     }
 }
