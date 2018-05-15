@@ -206,38 +206,31 @@ package com.ximsfei.stark.app;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.content.res.AssetManager;
-import android.content.res.Resources;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Button;
-import android.widget.Toast;
 
 import com.ximsfei.stark.core.Stark;
-import com.ximsfei.stark.core.runtime.StarkConfig;
-
-import java.io.File;
 
 public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Button goSecond = findViewById(R.id.go_second);
-        goSecond.setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.go_second).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(MainActivity.this, SecondActivity.class);
                 startActivity(intent);
             }
         });
-        Button load = findViewById(R.id.load);
-        load.setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.merge).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Stark.get().mergePatch(getApplication(), getPatchPath(MainActivity.this));
+            }
+        });
+        findViewById(R.id.load).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Stark.get().loadPatch(getApplication(), getPatchPath(MainActivity.this));

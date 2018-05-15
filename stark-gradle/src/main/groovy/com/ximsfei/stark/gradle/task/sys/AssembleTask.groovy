@@ -206,6 +206,7 @@ package com.ximsfei.stark.gradle.task.sys
 
 import com.android.build.gradle.api.ApkVariant
 import com.android.sdklib.BuildToolInfo
+import com.ximsfei.stark.gradle.StarkConstants
 import com.ximsfei.stark.gradle.scope.GlobalScope
 import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.TaskManager
@@ -241,13 +242,13 @@ class AssembleTask extends SysTask<DefaultTask> {
                 Plog.q "backupApkFile $backupApkFile is not exists."
                 return
             }
-            File unzipApkDir = AaptUtils.unzipApFile(project, apkFile.parentFile, apkFile, "apk_unzip")
-            File unzipBackupApkDir = AaptUtils.unzipApFile(project, apkFile.parentFile, backupApkFile, "backup_apk_unzip")
+            File unzipApkDir = AaptUtils.unzipApAllFile(apkFile.parentFile, apkFile, "apk_unzip")
+            File unzipBackupApkDir = AaptUtils.unzipApAllFile(apkFile.parentFile, backupApkFile, "backup_apk_unzip")
 
             doPatch(apkFile, unzipApkDir, unzipBackupApkDir)
 
-            FileUtils.deleteDirectory(unzipApkDir)
-            FileUtils.deleteDirectory(unzipBackupApkDir)
+//            FileUtils.deleteDirectory(unzipApkDir)
+//            FileUtils.deleteDirectory(unzipBackupApkDir)
             return
         } else {
             FileUtils.copyFile(apkFile, starkScope.getStarkBuildApkFile())
@@ -272,15 +273,15 @@ class AssembleTask extends SysTask<DefaultTask> {
                 path = path.replaceAll('\\\\', '/')
             }
             File backupFile = new File(file.absolutePath.replace(unzipApkDir.absolutePath, unzipBackupApkDir.absolutePath))
-            if (path != "resources.arsc"
+            if (path.endsWith(".dex")) {
+                // skip
+                Plog.q "skip dex $path."
+            } else if (path != "resources.arsc"
                     && path != "AndroidManifest.xml"
                     && !path.startsWith("assets")
                     && !path.startsWith("res")) {
-//                Plog.q "filter 1 resources $path."
+                Plog.q "filter other $path."
                 filteredResources.add(path)
-            } else if (path.endsWith(".dex")) {
-                // skip
-//                Plog.q "skip resources $path."
             } else if (!backupFile.exists()) {
                 updatedResources.add(path)
                 Plog.q "add resources $path."
@@ -292,10 +293,12 @@ class AssembleTask extends SysTask<DefaultTask> {
 
                 }
             } else {
-//                Plog.q "filter resources $path."
+                Plog.q "filter resources $path."
                 filteredResources.add(path)
             }
         }
+
+        updatedResources.add(writePatchPropertiesContents(unzipApkDir))
 
         String aaptExe = variant
                 .variantData
@@ -312,5 +315,25 @@ class AssembleTask extends SysTask<DefaultTask> {
                 unzipApkDir,
                 updatedResources,
                 filteredResources)
+    }
+
+    private String writePatchPropertiesContents(File unzipApkDir) {
+        File properties = new File(unzipApkDir, StarkConstants.STARK_PROPERTIES_FILE)
+        properties.append(StarkConstants.KEY_STARK_PATCH_BUILD_HASH)
+        properties.append("=")
+        properties.append(starkScope.buildHash)
+        properties.append("\n")
+
+        properties.append(StarkConstants.KEY_STARK_PATCH_BUILD_TIME)
+        properties.append("=")
+        properties.append(System.currentTimeMillis())
+        properties.append("\n")
+
+        properties.append(StarkConstants.KEY_STARK_PATCH_BUILD_VERSION)
+        properties.append("=")
+        properties.append(stark.patchVersion)
+        properties.append("\n")
+
+        StarkConstants.STARK_PROPERTIES_FILE
     }
 }

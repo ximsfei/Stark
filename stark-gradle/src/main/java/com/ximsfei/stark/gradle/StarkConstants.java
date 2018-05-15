@@ -224,4 +224,9 @@ public class StarkConstants {
     public static final String STARK_CORE_PACKAGE_NAME = "com.ximsfei.stark.core";
     public static final String STARK_CORE_RUNTIME_PACKAGE = "com/ximsfei/stark/core/runtime";
     public static final String STARK_CORE_RUNTIME_PACKAGE_NAME = STARK_CORE_PACKAGE_NAME + ".runtime";
+
+    public static final String STARK_PROPERTIES_FILE = "stark.properties";
+    public static final String KEY_STARK_PATCH_BUILD_HASH = "stark.patch.hash";
+    public static final String KEY_STARK_PATCH_BUILD_TIME = "stark.patch.time";
+    public static final String KEY_STARK_PATCH_BUILD_VERSION = "stark.patch.version";
 }

@@ -233,7 +233,7 @@ public class Stark {
         return sInstance;
     }
 
-    public void loadPatch(Context context, String path) {
+    public boolean loadPatch(Context context, String path) {
         StarkConfig.init(context);
         DexClassLoader dexClassLoader = new DexClassLoader(path,
                 context.getCacheDir().getPath(), context.getCacheDir().getPath(),
@@ -244,32 +244,37 @@ public class Stark {
             PatchLoader patchLoader = (PatchLoader) aClass.newInstance();
             boolean patchLoaded = patchLoader.load();
             if (patchLoaded) {
-                loadResources(context, path);
+                return loadResources(context, path);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return false;
     }
 
-    private void loadResources(Context context, String path) {
+    public boolean mergePatch(Context context, String path) {
+        return mergeResources(path, context.getApplicationInfo().sourceDir);
+    }
+
+    private boolean loadResources(Context context, String path) {
         try {
             ApplicationInfo info = context.getApplicationInfo();
-            String installedPath = info.sourceDir;
-            mergeResources(path, installedPath);
             info.sourceDir = path;
             info.publicSourceDir = path;
             mResources = context.getPackageManager().getResourcesForApplication(info);
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
         }
+        return false;
     }
 
-    private void mergeResources(String patchPath, String installedPath) {
+    private boolean mergeResources(String patchPath, String installedPath) {
         File patchApkFile = new File(patchPath);
         File mergedFile = new File(patchApkFile.getParent(), "merged.apk");
         File installedFile = new File(installedPath);
         if (!patchApkFile.exists() || !installedFile.exists()) {
-            return;
+            return false;
         }
         try {
             ZipFile patchApk = new ZipFile(patchApkFile);
@@ -298,9 +303,11 @@ public class Stark {
             zos.close();
             patchApkFile.delete();
             mergedFile.renameTo(patchApkFile);
+            return true;
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return false;
     }
 
     public Resources getResources() {

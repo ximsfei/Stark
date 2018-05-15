@@ -19,6 +19,7 @@ apply plugin: 'com.ximsfei.stark'
 
 stark {
     autoBackup = false
+    patchVersion = 1
 }
 
 android {
