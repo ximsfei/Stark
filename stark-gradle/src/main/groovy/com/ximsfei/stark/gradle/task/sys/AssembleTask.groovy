@@ -247,8 +247,8 @@ class AssembleTask extends SysTask<DefaultTask> {
 
             doPatch(apkFile, unzipApkDir, unzipBackupApkDir)
 
-//            FileUtils.deleteDirectory(unzipApkDir)
-//            FileUtils.deleteDirectory(unzipBackupApkDir)
+            FileUtils.deleteDirectory(unzipApkDir)
+            FileUtils.deleteDirectory(unzipBackupApkDir)
             return
         } else {
             FileUtils.copyFile(apkFile, starkScope.getStarkBuildApkFile())
