@@ -270,32 +270,28 @@ public class AsmUtils {
         }
     }
 
-    public static class ClassLoaderAndDirectoryBasedClassReader extends DirectoryBasedClassReader {
+    public static class ClassLoaderBasedClassReader implements ClassNodeProvider {
         private final ClassLoader classLoader;
 
-        public ClassLoaderAndDirectoryBasedClassReader(ClassLoader classLoader, File binaryFolder) {
-            super(binaryFolder);
+        public ClassLoaderBasedClassReader(ClassLoader classLoader) {
             this.classLoader = classLoader;
         }
 
         @Override
         public ClassNode loadClassNode(String className) {
-            ClassNode node = super.loadClassNode(className);
-            if (node == null) {
-                try (InputStream is = classLoader.getResourceAsStream(className + ".class")) {
-                    if (is == null) {
-                        throw new IOException("Failed to find byte code for " + className);
-                    }
-
-                    ClassReader classReader = new ClassReader(is);
-                    node = new ClassNode();
-                    classReader.accept(node, ClassReader.EXPAND_FRAMES);
-                    return node;
-                } catch (Exception e) {
-                    // logging
+            try (InputStream is = classLoader.getResourceAsStream(className + ".class")) {
+                if (is == null) {
+                    throw new IOException("Failed to find byte code for " + className);
                 }
+
+                ClassReader classReader = new ClassReader(is);
+                ClassNode node = new ClassNode();
+                classReader.accept(node, ClassReader.EXPAND_FRAMES);
+                return node;
+            } catch (Exception e) {
+                // logging
             }
-            return node;
+            return null;
         }
     }
 
@@ -336,6 +332,7 @@ public class AsmUtils {
             }
             return null;
         }
+
     }
 
     @NonNull

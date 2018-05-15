@@ -221,8 +221,6 @@ import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSet
 import com.google.common.io.Files
 import com.ximsfei.stark.gradle.StarkConstants
-import com.ximsfei.stark.gradle.asm.monitor.AsmClassNode
-import com.ximsfei.stark.gradle.asm.monitor.HashMethodNode
 import com.ximsfei.stark.gradle.asm.monitor.MonitorVisitor
 import com.ximsfei.stark.gradle.asm.monitor.PatchVisitor
 import com.ximsfei.stark.gradle.asm.monitor.RedirectionVisitor
@@ -238,7 +236,11 @@ import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
-import org.objectweb.asm.tree.MethodNode
+
+import java.util.jar.JarEntry
+import java.util.jar.JarFile
+import java.util.jar.JarOutputStream
+import java.util.zip.ZipEntry
 
 class StarkTransform extends Transform {
     Project project
@@ -283,7 +285,6 @@ class StarkTransform extends Transform {
     }
 
     /**
-     * 根据Hash值，提取被修改的Method
      * @param invocation
      */
     void doPatch(TransformInvocation invocation) {
@@ -292,6 +293,18 @@ class StarkTransform extends Transform {
         if (starkScope == null) {
             // do nothing
             Plog.q "Current stark scope is null. Do nothing."
+        }
+
+        def backupClassFile = starkScope.getBackupMonitorClassFile()
+        if (!backupClassFile.exists()) {
+            throw new StarkException("Backup class file: $backupClassFile.absolutePath is not exists.")
+        }
+        Map<String, String> backupClassHashMap = [:]
+        backupClassFile.eachLine { line ->
+            def splits = line.split("->")
+            if (splits.length == 2) {
+                backupClassHashMap.put(splits[0], splits[1])
+            }
         }
 
         // first get all referenced input to construct a class loader capable of loading those
@@ -305,25 +318,15 @@ class StarkTransform extends Transform {
                 ImmutableSet.of(QualifiedContent.DefaultContentType.CLASSES),
                 getScopes(),
                 Format.DIRECTORY)
+
         invocation.inputs.each { input ->
-            input.directoryInputs.each { DirectoryInput inputDir ->
-                def dest = outputProvider.getContentLocation(inputDir.name, inputDir.contentTypes, inputDir.scopes, Format.DIRECTORY)
-//                FileUtils.copyDirectory(inputDir.file, dest)
+            input.directoryInputs.each { dirInput ->
+                def dest = outputProvider.getContentLocation(dirInput.name, dirInput.contentTypes, dirInput.scopes, Format.DIRECTORY)
+//                FileUtils.copyDirectory(dirInput.file, dest)
                 if (starkScope == null) {
                     return
                 }
-                def backupClassFile = starkScope.getBackupMonitorClassFile()
-                if (!backupClassFile.exists()) {
-                    throw new StarkException("Backup class file: $backupClassFile.absolutePath is not exists.")
-                }
-                Map<String, String> backupClassHashMap = [:]
-                backupClassFile.eachLine { line ->
-                    def splits = line.split("->")
-                    if (splits.length == 2) {
-                        backupClassHashMap.put(splits[0], splits[1])
-                    }
-                }
-                inputDir.file.eachFileRecurse(FileType.FILES) { file ->
+                dirInput.file.eachFileRecurse(FileType.FILES) { file ->
                     if (file.name.endsWith(SdkConstants.DOT_CLASS)) {
                         ClassReader classReader = new ClassReader(file.bytes)
                         String className = classReader.className.replace(File.separator, ".")
@@ -332,49 +335,62 @@ class StarkTransform extends Transform {
                             return
                         }
                         File outputFile = new File(PatchVisitor.VISITOR_BUILDER.getMangledRelativeClassFilePath(
-                                file.absolutePath.replace(inputDir.file.absolutePath, dest.absolutePath)))
-                        AsmClassNode asmClassNode = MonitorVisitor.instrumentClass(file, outputFile, baseClassLoader, PatchVisitor.VISITOR_BUILDER)
-                        if (asmClassNode == null) {
-                            Plog.q "$className class node is empty."
-                            return
-                        }
-                        if (asmClassNode.classNode.methods.empty) {
-                            Plog.q "$className methods is empty."
+                                file.absolutePath.replace(dirInput.file.absolutePath, dest.absolutePath)))
+                        boolean instrumented = MonitorVisitor.instrumentClassFile(file, outputFile, baseClassLoader, PatchVisitor.VISITOR_BUILDER)
+                        if (!instrumented) {
+                            Plog.q "$className instrumented fialed."
                             return
                         }
                         generatedClassesBuilder.add(className)
-//                        def backupMethodFile = starkScope.getBackupMonitorMethodFile(className)
-//                        Map<String, String> backupMethodHashMap = [:]
-//                        backupMethodFile.eachLine { line ->
-//                            def splits = line.split("->")
-//                            if (splits.length == 2) {
-//                                backupMethodHashMap.put(splits[0], splits[1])
-//                            }
-//                        }
-//                        asmClassNode.classNode.methods.each { MethodNode methodNode ->
-//                            String methodName = methodNode.name + methodNode.desc
-//                            String methodHash = HashMethodNode.generateMethodHashCode(className, methodNode)
-//                            if (backupMethodHashMap.get(methodName) != methodHash) {
-//                                Plog.q "$className $methodName method is changed."
-//                            }
-//                        }
                     }
                 }
             }
-            input.jarInputs.each {
-                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.JAR)
-//                FileUtils.copyFile(it.file, dest)
+            input.jarInputs.each { jarInput ->
+                def dest = outputProvider.getContentLocation(jarInput.name, jarInput.contentTypes, jarInput.scopes, Format.JAR)
+//                FileUtils.copyFile(jarInput.file, dest)
                 if (starkScope == null) {
                     return
                 }
+                if (jarInput.file.absolutePath.endsWith(SdkConstants.DOT_JAR)) {
+                    def jarFile = new JarFile(jarInput.file)
+                    def jarEntries = jarFile.entries()
+                    def jarOutputStream = new JarOutputStream(new FileOutputStream(dest))
+
+                    while (jarEntries.hasMoreElements()) {
+                        def entry = (JarEntry) jarEntries.nextElement()
+                        def entryName = entry.name
+                        if (entryName.endsWith(SdkConstants.DOT_CLASS)) {
+                            def zipEntry = new ZipEntry(entryName)
+                            def inputStream = jarFile.getInputStream(entry)
+                            def classBytes = inputStream.bytes
+
+                            ClassReader classReader = new ClassReader(classBytes)
+                            String className = classReader.className.replace(File.separator, ".")
+                            String classHash = HashUtil.sha256(classBytes).asHexString()
+                            if (backupClassHashMap.get(className) == classHash) {
+                                continue
+                            }
+
+                            jarOutputStream.putNextEntry(zipEntry)
+                            def bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
+                                    baseClassLoader, PatchVisitor.VISITOR_BUILDER)
+                            if (bytes == null) {
+                                bytes = classBytes
+                            }
+                            jarOutputStream.write(bytes)
+                            jarOutputStream.closeEntry()
+                            generatedClassesBuilder.add(className)
+                        }
+                    }
+                    jarOutputStream.close()
+                    jarFile.close()
+                }
             }
         }
-        ImmutableList<String> generatedClasses = generatedClassesBuilder.build()
-        writePatchFileContents(generatedClasses, patchFileDir, starkScope.buildHash)
+        writePatchFileContents(generatedClassesBuilder.build(), patchFileDir, starkScope.buildHash)
     }
 
     /**
-     * 记录所有Class和Method的Hash值
      * @param invocation
      */
     void doMonitor(TransformInvocation invocation) {
@@ -393,51 +409,68 @@ class StarkTransform extends Transform {
 
         def monitorClassFile = starkScope.getStarkBuildMonitorClassFile()
         monitorClassFile.createNewFile()
+
         invocation.inputs.each { input ->
-            input.directoryInputs.each {
-                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.DIRECTORY)
-                FileUtils.copyDirectory(it.file, dest)
+            input.directoryInputs.each { dirInput ->
+                def dest = outputProvider.getContentLocation(dirInput.name, dirInput.contentTypes, dirInput.scopes, Format.DIRECTORY)
+                FileUtils.copyDirectory(dirInput.file, dest)
                 if (starkScope == null) {
                     return
                 }
                 dest.eachFileRecurse(FileType.FILES) { file ->
                     if (file.name.endsWith(SdkConstants.DOT_CLASS)) {
-                        ClassReader classReader = new ClassReader(file.bytes)
-                        String className = classReader.className.replace(File.separator, ".")
-                        Plog.q "classReader = " + className
-                        monitorClassFile.append(className)
-                        monitorClassFile.append("->")
-                        monitorClassFile.append(HashUtil.sha256(file.bytes).asHexString())
-                        monitorClassFile.append("\n")
-                        AsmClassNode classNode = MonitorVisitor.instrumentClass(file, file, baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
-//                        if (classNode == null) {
-//                            Plog.q "$className class node is empty."
-//                            return
-//                        }
-//                        if (classNode.classNode.methods.empty) {
-//                            Plog.q "$className methods is empty."
-//                            return
-//                        }
-//                        def monitorMethodFile = starkScope.getStarkBuildMonitorMethodFile(className)
-//                        monitorMethodFile.createNewFile()
-//                        classNode.classNode.methods.each { MethodNode methodNode ->
-//                            monitorMethodFile.append(methodNode.name)
-//                            monitorMethodFile.append(methodNode.desc)
-//                            monitorMethodFile.append("->")
-//                            monitorMethodFile.append(HashMethodNode.generateMethodHashCode(className, methodNode))
-//                            monitorMethodFile.append("\n")
-//                        }
+                        writeClassHash(monitorClassFile, file.bytes)
+                        MonitorVisitor.instrumentClassFile(file, file, baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
                     }
                 }
             }
-            input.jarInputs.each {
-                def dest = outputProvider.getContentLocation(it.name, it.contentTypes, it.scopes, Format.JAR)
-                FileUtils.copyFile(it.file, dest)
+            input.jarInputs.each { jarInput ->
+                def dest = outputProvider.getContentLocation(jarInput.name, jarInput.contentTypes, jarInput.scopes, Format.JAR)
+//                FileUtils.copyFile(jarInput.file, dest)
                 if (starkScope == null) {
                     return
                 }
+                if (jarInput.file.absolutePath.endsWith(SdkConstants.DOT_JAR)) {
+                    def jarFile = new JarFile(jarInput.file)
+                    def jarEntries = jarFile.entries()
+                    def jarOutputStream = new JarOutputStream(new FileOutputStream(dest))
+
+                    while (jarEntries.hasMoreElements()) {
+                        def entry = (JarEntry) jarEntries.nextElement()
+                        def entryName = entry.name
+                        def zipEntry = new ZipEntry(entryName)
+                        def inputStream = jarFile.getInputStream(entry)
+                        jarOutputStream.putNextEntry(zipEntry)
+                        def bytes
+                        if (entryName.endsWith(SdkConstants.DOT_CLASS)) {
+                            def classBytes = inputStream.bytes
+                            writeClassHash(monitorClassFile, classBytes)
+                            bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
+                                    baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
+                            if (bytes == null) {
+                                bytes = classBytes
+                            }
+                        } else {
+                            bytes = inputStream.bytes
+                        }
+                        jarOutputStream.write(bytes)
+                        jarOutputStream.closeEntry()
+                    }
+                    jarOutputStream.close()
+                    jarFile.close()
+                }
             }
         }
+    }
+
+    private void writeClassHash(File monitorClassFile, byte[] classBytes) {
+        ClassReader classReader = new ClassReader(classBytes)
+        String className = classReader.className.replace(File.separator, ".")
+        Plog.q "jar classReader = " + className
+        monitorClassFile.append(className)
+        monitorClassFile.append("->")
+        monitorClassFile.append(HashUtil.sha256(classBytes).asHexString())
+        monitorClassFile.append("\n")
     }
 
     /**

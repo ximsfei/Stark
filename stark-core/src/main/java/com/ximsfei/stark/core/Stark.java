@@ -295,6 +295,8 @@ public class Stark {
                     }
                 } else if (name.equals("resources.arsc")) {
                     ZipUtils.writeEntry(patchApk, zos, patchEntry);
+                } else if (name.endsWith(".dex")) {
+                    ZipUtils.writeEntry(patchApk, zos, patchEntry);
                 }
             }
             patchApk.close();
