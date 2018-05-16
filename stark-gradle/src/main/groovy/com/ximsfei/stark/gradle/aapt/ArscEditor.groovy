@@ -84,13 +84,21 @@ public class ArscEditor extends AssetEditor {
             retainedTypeSpecs.add(attrSpec)
         }
         // Filter typeSpecs
+        def typeSpecsIndex = 0
+        def typeIdSpecsIndexMap = [:]
         retainedTypes.each {
             if (it.id == Aapt.ID_DELETED) {
                 // TODO: Add empty entry to default config
                 throw new UnsupportedOperationException("No support deleting resources on lib.* now")
             }
+            def index = typeIdSpecsIndexMap.get(it.id)
+            if (index == null) {
+                index = typeSpecsIndex
+                typeIdSpecsIndexMap.put(it.id, index)
+                typeSpecsIndex++
+            }
 
-            def ts = t.typeList.specs[it.id - 1]
+            def ts = t.typeList.specs[index]
             def es = it.entries
             def newEntryCount = es.size()
             def d = (ts.entryCount - newEntryCount) * 4
@@ -226,7 +234,7 @@ public class ArscEditor extends AssetEditor {
 
             ts.configs = configs
             retainedTypeSpecs.add(ts)
-            retainedTypeIds.add(it.id - 1)
+            retainedTypeIds.add(index)
         }
         // Reset entry keys (reference to keyStringPool index)
         def keyMaps = [:]

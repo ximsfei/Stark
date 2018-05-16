@@ -813,7 +813,7 @@ public class PatchVisitor extends MonitorVisitor {
                 if (lambdaMethod == null) {
                     throw new RuntimeException(
                             String.format(
-                                    "Internal instant-run error while locating lambda %s"
+                                    "Internal stark error while locating lambda %s"
                                             + "in class %s, please file a bug",
                                     handle.getName(), visitedClassName));
                 }

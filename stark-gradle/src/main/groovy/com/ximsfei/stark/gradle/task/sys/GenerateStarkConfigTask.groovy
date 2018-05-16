@@ -208,13 +208,13 @@ import com.android.annotations.NonNull
 import com.android.annotations.Nullable
 import com.android.build.gradle.api.ApkVariant
 import com.android.build.gradle.tasks.GenerateBuildConfig
-import com.android.builder.internal.ClassFieldImpl
 import com.android.builder.model.ClassField
 import com.google.common.base.Charsets
 import com.google.common.collect.Lists
 import com.google.common.io.Closer
 import com.squareup.javawriter.JavaWriter
 import com.ximsfei.stark.gradle.StarkConstants
+import com.ximsfei.stark.gradle.internal.ClassFieldImpl
 import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.TaskManager
 

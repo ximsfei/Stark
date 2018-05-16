@@ -206,7 +206,6 @@ package com.ximsfei.stark.gradle.task.sys
 
 import com.android.build.gradle.AppExtension
 import com.android.build.gradle.api.ApkVariant
-import com.android.build.gradle.internal.api.ApkVariantImpl
 import com.ximsfei.stark.gradle.StarkExtension
 import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.TaskManager
@@ -219,7 +218,7 @@ abstract class SysTask<T extends Task> {
     protected Project project
     protected AppExtension android
     protected StarkExtension stark
-    protected ApkVariantImpl variant
+    protected ApkVariant variant
     protected T task
 
     SysTask(TaskManager manager, ApkVariant variant, StarkVariantScope starkScope) {

@@ -205,20 +205,20 @@
 package com.ximsfei.stark.gradle.task.sys
 
 import com.android.build.gradle.api.ApkVariant
-import com.android.build.gradle.internal.pipeline.TransformTask
 import com.ximsfei.stark.gradle.StarkConstants
 import com.ximsfei.stark.gradle.scope.GlobalScope
 import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.TaskManager
+import org.gradle.api.DefaultTask
 
-class TransformStarkTask extends SysTask<TransformTask> {
+class TransformStarkTask extends SysTask<DefaultTask> {
 
     TransformStarkTask(TaskManager manager, ApkVariant variant, StarkVariantScope starkScope) {
         super(manager, variant, starkScope)
     }
 
     @Override
-    protected TransformTask getTask() {
+    protected DefaultTask getTask() {
         project.getTasksByName("transformClassesWith"
                 + StarkConstants.TRANSFORM_STARK_NAME.capitalize()
                 + "For" + variant.buildType.name.capitalize(), false).first()

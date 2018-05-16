@@ -216,11 +216,8 @@ import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.TaskManager
 import com.ximsfei.stark.gradle.util.AaptUtils
 import com.ximsfei.stark.gradle.util.Plog
-import com.ximsfei.stark.gradle.util.ZipUtils
 import groovy.io.FileType
 import org.apache.commons.io.FileUtils
-import org.gradle.api.file.FileTree
-import org.gradle.internal.hash.HashUtil
 
 class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
     private static final int UNSET_TYPEID = 99
@@ -249,7 +246,7 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
 
     @Override
     protected ProcessAndroidResources getTask() {
-        variant.variantData.scope.processResourcesTask
+        project.getTasksByName("process" + variant.buildType.name.capitalize() + "Resources", false).first()
     }
 
     @Override

@@ -202,113 +202,25 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.core;
+package com.ximsfei.stark.gradle.asm.monitor;
 
-import android.content.Context;
-import android.content.pm.ApplicationInfo;
-import android.content.res.Resources;
+public enum DexPackagingPolicy {
+    /**
+     * Standard Dex packaging policy, all dex files will be packaged at the root of the APK.
+     */
+    STANDARD,
 
-import com.ximsfei.stark.core.runtime.PatchLoader;
-import com.ximsfei.stark.core.runtime.StarkConfig;
-import com.ximsfei.stark.core.util.ZipUtils;
+    /**
+     * InstantRun specific Dex packaging policy, all dex files with a name containing {@code
+     * InstantRunSlicer#MAIN_SLICE_NAME} will be packaged at the root of the APK while all other
+     * dex files will be packaged in a instant-run.zip itself packaged at the root of the APK.
+     */
+    INSTANT_RUN_SHARDS_IN_SINGLE_APK,
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.Enumeration;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
-
-import dalvik.system.DexClassLoader;
-
-public class Stark {
-    private static final Stark sInstance = new Stark();
-    private Resources mResources;
-
-    private Stark() {
-    }
-
-    public static Stark get() {
-        return sInstance;
-    }
-
-    public boolean loadPatch(Context context, String path) {
-        StarkConfig.init(context);
-        DexClassLoader dexClassLoader = new DexClassLoader(path,
-                context.getCacheDir().getPath(), context.getCacheDir().getPath(),
-                getClass().getClassLoader());
-        try {
-            Class<?> aClass = Class.forName("com.ximsfei.stark.core.runtime.StarkPatchLoaderImpl",
-                    true, dexClassLoader);
-            PatchLoader patchLoader = (PatchLoader) aClass.newInstance();
-            boolean patchLoaded = patchLoader.load();
-            if (patchLoaded) {
-                return loadResources(context, path);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    public boolean mergePatch(Context context, String path) {
-        return mergeResources(path, context.getApplicationInfo().sourceDir);
-    }
-
-    private boolean loadResources(Context context, String path) {
-        try {
-            ApplicationInfo info = context.getApplicationInfo();
-            info.sourceDir = path;
-            info.publicSourceDir = path;
-            mResources = context.getPackageManager().getResourcesForApplication(info);
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    private boolean mergeResources(String patchPath, String installedPath) {
-        File patchApkFile = new File(patchPath);
-        File mergedFile = new File(patchApkFile.getParent(), "merged.apk");
-        File installedFile = new File(installedPath);
-        if (!patchApkFile.exists() || !installedFile.exists()) {
-            return false;
-        }
-        try {
-            ZipFile patchApk = new ZipFile(patchApkFile);
-            ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(mergedFile));
-            ZipFile installedApk = new ZipFile(installedFile);
-            Enumeration<? extends ZipEntry> entries = installedApk.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                String name = entry.getName();
-                ZipEntry patchEntry = patchApk.getEntry(name);
-                if (patchEntry != null) {
-                    ZipUtils.writeEntry(patchApk, zos, patchEntry);
-                } else if (name.equals("resources.arsc")) {
-                    ZipUtils.writeEntry(installedApk, zos, entry);
-                } else if (name.startsWith("assets/")
-                        || name.startsWith("res/")
-                        || name.equals("AndroidManifest.xml")) {
-                    ZipUtils.writeEntry(installedApk, zos, entry);
-                }
-            }
-            patchApk.close();
-            installedApk.close();
-            zos.flush();
-            zos.close();
-            patchApkFile.delete();
-            mergedFile.renameTo(patchApkFile);
-            return true;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    public Resources getResources() {
-        return mResources;
-    }
+    /**
+     * InstantRun specific packaging based on split APKs. Each dex files with a name
+     * containing {@code InstantRunSlicer#MAIN_SLICE_NAME} will be packaged normally as a dex file
+     * at the root of the APK while each other one will be packaged as a separate split APK.
+     */
+    INSTANT_RUN_MULTI_APK
 }

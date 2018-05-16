@@ -205,7 +205,6 @@
 package com.ximsfei.stark.gradle.asm.monitor;
 
 import com.android.annotations.NonNull;
-import com.android.build.gradle.internal.incremental.ByteCodeUtils;
 
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;

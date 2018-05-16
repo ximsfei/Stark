@@ -205,18 +205,16 @@
 package com.ximsfei.stark.gradle.asm.monitor;
 
 import com.android.annotations.NonNull;
-import com.android.build.gradle.internal.incremental.InstantRunBuildMode;
-import com.android.build.gradle.internal.incremental.InstantRunPatchingPolicy;
 import com.google.common.collect.ImmutableMap;
 
 /** Changes to a class that cannot be hot swapped with the current InstantRun runtime. */
 public enum StarkVerifierStatus {
 
     // There were no changes.
-    NO_CHANGES(InstantRunBuildMode.HOT_WARM),
+    NO_CHANGES(StarkBuildMode.HOT_WARM),
 
     // changes are compatible with current InstantRun features.
-    COMPATIBLE(InstantRunBuildMode.HOT_WARM),
+    COMPATIBLE(StarkBuildMode.HOT_WARM),
 
     // the verifier did not run successfully.
     NOT_RUN,
@@ -279,26 +277,26 @@ public enum StarkVerifierStatus {
 
     COLD_SWAP_REQUESTED,
 
-    FULL_BUILD_REQUESTED(InstantRunBuildMode.FULL),
+    FULL_BUILD_REQUESTED(StarkBuildMode.FULL),
 
-    INITIAL_BUILD(InstantRunBuildMode.FULL);
+    INITIAL_BUILD(StarkBuildMode.FULL);
 
-    private final ImmutableMap<InstantRunPatchingPolicy, InstantRunBuildMode> buildMode;
+    private final ImmutableMap<StarkPatchingPolicy, StarkBuildMode> buildMode;
 
     StarkVerifierStatus() {
-        this(InstantRunBuildMode.COLD);
+        this(StarkBuildMode.COLD);
     }
 
     StarkVerifierStatus(
-            @NonNull InstantRunBuildMode multiApkBuildMode) {
+            @NonNull StarkBuildMode multiApkBuildMode) {
         buildMode =
                 ImmutableMap.of(
-                        InstantRunPatchingPolicy.MULTI_APK, multiApkBuildMode,
-                        InstantRunPatchingPolicy.MULTI_APK_SEPARATE_RESOURCES, multiApkBuildMode);
+                        StarkPatchingPolicy.MULTI_APK, multiApkBuildMode,
+                        StarkPatchingPolicy.MULTI_APK_SEPARATE_RESOURCES, multiApkBuildMode);
     }
 
-    public InstantRunBuildMode getInstantRunBuildModeForPatchingPolicy(
-            @NonNull InstantRunPatchingPolicy patchingPolicy) {
+    public StarkBuildMode getStarkBuildModeForPatchingPolicy(
+            @NonNull StarkPatchingPolicy patchingPolicy) {
         return buildMode.get(patchingPolicy);
     }
 }

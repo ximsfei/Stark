@@ -212,10 +212,10 @@ import com.ximsfei.stark.gradle.scope.StarkVariantScope
 import com.ximsfei.stark.gradle.task.TaskManager
 import com.ximsfei.stark.gradle.util.AaptUtils
 import com.ximsfei.stark.gradle.util.Plog
+import com.ximsfei.stark.gradle.util.hash.HashUtil
 import groovy.io.FileType
 import org.apache.commons.io.FileUtils
 import org.gradle.api.DefaultTask
-import org.gradle.internal.hash.HashUtil
 
 class AssembleTask extends SysTask<DefaultTask> {
 

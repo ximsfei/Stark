@@ -206,7 +206,6 @@ package com.ximsfei.stark.gradle.task
 
 import com.android.build.gradle.AppExtension
 import com.android.build.gradle.api.ApkVariant
-import com.android.build.gradle.internal.api.ApkVariantImpl
 import com.ximsfei.stark.gradle.scope.GlobalScope
 import com.ximsfei.stark.gradle.StarkConstants
 import com.ximsfei.stark.gradle.StarkExtension
@@ -231,7 +230,7 @@ class TaskManager {
 
     void configTasks() {
         project.afterEvaluate {
-            android.applicationVariants.all { ApkVariantImpl variant ->
+            android.applicationVariants.all { ApkVariant variant ->
                 def starkScope = new StarkVariantScope(project, variant)
                 configSysTasks(starkScope, variant)
                 configStarkTasks(starkScope, variant)
@@ -256,7 +255,7 @@ class TaskManager {
         transformTask.config()
     }
 
-    private void configStarkTasks(StarkVariantScope starkScope, ApkVariantImpl variant) {
+    private void configStarkTasks(StarkVariantScope starkScope, ApkVariant variant) {
         def scope = variant.variantData.scope
         def backupTask = project.task(scope.getTaskName(StarkConstants.TASK_BACKUP))
         backupTask.group = StarkConstants.TASKS_GROUP
@@ -265,10 +264,10 @@ class TaskManager {
         }
         def patchTask = project.task(scope.getTaskName(StarkConstants.TASK_GENERATE_PATCH))
         patchTask.group = StarkConstants.TASKS_GROUP
-        patchTask.dependsOn(scope.assembleTask)
+        patchTask.dependsOn(variant.assemble)
     }
 
-    void doBackup(ApkVariantImpl variant, StarkVariantScope starkScope) {
+    void doBackup(ApkVariant variant, StarkVariantScope starkScope) {
         if (GlobalScope.isGeneratePatch) {
             return
         }

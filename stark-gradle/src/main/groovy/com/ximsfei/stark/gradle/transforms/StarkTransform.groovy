@@ -216,9 +216,9 @@ import com.android.build.api.transform.TransformInput
 import com.android.build.api.transform.TransformInvocation
 import com.android.build.api.transform.TransformOutputProvider
 import com.android.build.gradle.BaseExtension
-import com.android.build.gradle.internal.pipeline.TransformManager
 import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSet
+import com.google.common.collect.Sets
 import com.google.common.io.Files
 import com.ximsfei.stark.gradle.StarkConstants
 import com.ximsfei.stark.gradle.asm.monitor.MonitorVisitor
@@ -228,10 +228,10 @@ import com.ximsfei.stark.gradle.exception.StarkException
 import com.ximsfei.stark.gradle.scope.GlobalScope
 import com.ximsfei.stark.gradle.util.AndroidClassPath
 import com.ximsfei.stark.gradle.util.Plog
+import com.ximsfei.stark.gradle.util.hash.HashUtil
 import groovy.io.FileType
 import org.apache.commons.io.FileUtils
 import org.gradle.api.Project
-import org.gradle.internal.hash.HashUtil
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.MethodVisitor
@@ -258,12 +258,15 @@ class StarkTransform extends Transform {
 
     @Override
     Set<QualifiedContent.ContentType> getInputTypes() {
-        TransformManager.CONTENT_CLASS
+        ImmutableSet.of(QualifiedContent.DefaultContentType.CLASSES)
     }
 
     @Override
     Set<? super QualifiedContent.Scope> getScopes() {
-        TransformManager.SCOPE_FULL_PROJECT
+        Sets.immutableEnumSet(
+                QualifiedContent.Scope.PROJECT,
+                QualifiedContent.Scope.SUB_PROJECTS,
+                QualifiedContent.Scope.EXTERNAL_LIBRARIES);
     }
 
     @Override
@@ -360,7 +363,7 @@ class StarkTransform extends Transform {
                         def entry = (JarEntry) jarEntries.nextElement()
                         def entryName = entry.name
                         if (entryName.endsWith(SdkConstants.DOT_CLASS)) {
-                            def zipEntry = new ZipEntry(entryName)
+                            def zipEntry = new ZipEntry(PatchVisitor.VISITOR_BUILDER.getMangledRelativeClassFilePath(entryName))
                             def inputStream = jarFile.getInputStream(entry)
                             def classBytes = inputStream.bytes
 
@@ -371,15 +374,28 @@ class StarkTransform extends Transform {
                                 continue
                             }
 
-                            jarOutputStream.putNextEntry(zipEntry)
-                            def bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
-                                    baseClassLoader, PatchVisitor.VISITOR_BUILDER)
-                            if (bytes == null) {
-                                bytes = classBytes
+                            try {
+                                byte[] bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
+                                        baseClassLoader, PatchVisitor.VISITOR_BUILDER)
+                                zipEntry.setMethod(entry.getMethod())
+                                zipEntry.setTime(entry.getTime())
+                                zipEntry.setComment(entry.getComment())
+                                zipEntry.setExtra(entry.getExtra())
+                                if (entry.getMethod() == ZipEntry.STORED) {
+                                    zipEntry.setSize(entry.getSize())
+                                    zipEntry.setCrc(entry.getCrc())
+                                }
+                                if (bytes != null) {
+                                    jarOutputStream.putNextEntry(zipEntry)
+                                    jarOutputStream.write(bytes)
+                                    jarOutputStream.closeEntry()
+                                    generatedClassesBuilder.add(className)
+                                } else {
+                                    Plog.q "$className instrumentClass failed."
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace()
                             }
-                            jarOutputStream.write(bytes)
-                            jarOutputStream.closeEntry()
-                            generatedClassesBuilder.add(className)
                         }
                     }
                     jarOutputStream.close()
@@ -445,8 +461,13 @@ class StarkTransform extends Transform {
                         if (entryName.endsWith(SdkConstants.DOT_CLASS)) {
                             def classBytes = inputStream.bytes
                             writeClassHash(monitorClassFile, classBytes)
-                            bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
-                                    baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
+
+                            try {
+                                bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
+                                        baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
+                            } catch (Exception e) {
+                                e.printStackTrace()
+                            }
                             if (bytes == null) {
                                 bytes = classBytes
                             }
@@ -512,13 +533,13 @@ class StarkTransform extends Transform {
         mv.visitEnd()
 //        }
 //        {
-        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "getBuildHash", "()Ljava/lang/String;", null, null)
-        mv.visitCode()
-        mv.visitVarInsn(Opcodes.ALOAD, 0)
-        mv.visitLdcInsn(buildHash)
-        mv.visitInsn(Opcodes.ARETURN)
-        mv.visitMaxs(1, 1)
-        mv.visitEnd()
+//        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "getBuildHash", "()Ljava/lang/String;", null, null)
+//        mv.visitCode()
+//        mv.visitVarInsn(Opcodes.ALOAD, 0)
+//        mv.visitLdcInsn(buildHash)
+//        mv.visitInsn(Opcodes.ARETURN)
+//        mv.visitMaxs(1, 1)
+//        mv.visitEnd()
 //        }
 //        {
         mv = cw.visitMethod(Opcodes.ACC_PUBLIC,

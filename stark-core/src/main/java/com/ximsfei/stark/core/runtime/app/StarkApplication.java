@@ -214,4 +214,13 @@ public class StarkApplication extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(new StarkContextWrapper(base));
     }
+
+    @Override
+    public Context getBaseContext() {
+        Context base = super.getBaseContext();
+        if (base instanceof StarkContextWrapper) {
+            base = ((StarkContextWrapper) base).getBaseContext();
+        }
+        return base;
+    }
 }

@@ -202,113 +202,110 @@
  *  limitations under the License.
  *
  */
-package com.ximsfei.stark.core;
+package com.ximsfei.stark.gradle.internal;
 
-import android.content.Context;
-import android.content.pm.ApplicationInfo;
-import android.content.res.Resources;
+import com.android.annotations.NonNull;
+import com.android.annotations.concurrency.Immutable;
+import com.android.builder.model.ClassField;
+import com.google.common.collect.ImmutableSet;
 
-import com.ximsfei.stark.core.runtime.PatchLoader;
-import com.ximsfei.stark.core.runtime.StarkConfig;
-import com.ximsfei.stark.core.util.ZipUtils;
+import java.io.Serializable;
+import java.util.Set;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.Enumeration;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
+/**
+ * Immutable implementation of {@link ClassField}
+ */
+@Immutable
+public final class ClassFieldImpl implements ClassField, Serializable {
 
-import dalvik.system.DexClassLoader;
+    private static final long serialVersionUID = 1L;
 
-public class Stark {
-    private static final Stark sInstance = new Stark();
-    private Resources mResources;
+    @NonNull
+    private final String type;
+    @NonNull
+    private final String name;
+    @NonNull
+    private final String value;
+    @NonNull
+    private final Set<String> annotations;
+    @NonNull
+    private final String documentation;
 
-    private Stark() {
+    public ClassFieldImpl(@NonNull String type, @NonNull String name, @NonNull String value) {
+        this(type, name, value, ImmutableSet.<String>of(), "");
     }
 
-    public static Stark get() {
-        return sInstance;
-    }
-
-    public boolean loadPatch(Context context, String path) {
-        StarkConfig.init(context);
-        DexClassLoader dexClassLoader = new DexClassLoader(path,
-                context.getCacheDir().getPath(), context.getCacheDir().getPath(),
-                getClass().getClassLoader());
-        try {
-            Class<?> aClass = Class.forName("com.ximsfei.stark.core.runtime.StarkPatchLoaderImpl",
-                    true, dexClassLoader);
-            PatchLoader patchLoader = (PatchLoader) aClass.newInstance();
-            boolean patchLoaded = patchLoader.load();
-            if (patchLoaded) {
-                return loadResources(context, path);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    public ClassFieldImpl(@NonNull String type, @NonNull String name, @NonNull String value,
+                          @NonNull Set<String> annotations, @NonNull String documentation) {
+        //noinspection ConstantConditions
+        if (type == null || name == null || value == null || annotations == null || documentation == null) {
+            throw new NullPointerException("Build Config field cannot have a null parameter");
         }
-        return false;
+        this.type = type;
+        this.name = name;
+        this.value = value;
+        this.annotations = ImmutableSet.copyOf(annotations);
+        this.documentation = documentation;
     }
 
-    public boolean mergePatch(Context context, String path) {
-        return mergeResources(path, context.getApplicationInfo().sourceDir);
+    public ClassFieldImpl(@NonNull ClassField classField) {
+        this(classField.getType(), classField.getName(), classField.getValue(),
+                classField.getAnnotations(), classField.getDocumentation());
     }
 
-    private boolean loadResources(Context context, String path) {
-        try {
-            ApplicationInfo info = context.getApplicationInfo();
-            info.sourceDir = path;
-            info.publicSourceDir = path;
-            mResources = context.getPackageManager().getResourcesForApplication(info);
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
+    @Override
+    @NonNull
+    public String getType() {
+        return type;
     }
 
-    private boolean mergeResources(String patchPath, String installedPath) {
-        File patchApkFile = new File(patchPath);
-        File mergedFile = new File(patchApkFile.getParent(), "merged.apk");
-        File installedFile = new File(installedPath);
-        if (!patchApkFile.exists() || !installedFile.exists()) {
-            return false;
-        }
-        try {
-            ZipFile patchApk = new ZipFile(patchApkFile);
-            ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(mergedFile));
-            ZipFile installedApk = new ZipFile(installedFile);
-            Enumeration<? extends ZipEntry> entries = installedApk.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                String name = entry.getName();
-                ZipEntry patchEntry = patchApk.getEntry(name);
-                if (patchEntry != null) {
-                    ZipUtils.writeEntry(patchApk, zos, patchEntry);
-                } else if (name.equals("resources.arsc")) {
-                    ZipUtils.writeEntry(installedApk, zos, entry);
-                } else if (name.startsWith("assets/")
-                        || name.startsWith("res/")
-                        || name.equals("AndroidManifest.xml")) {
-                    ZipUtils.writeEntry(installedApk, zos, entry);
-                }
-            }
-            patchApk.close();
-            installedApk.close();
-            zos.flush();
-            zos.close();
-            patchApkFile.delete();
-            mergedFile.renameTo(patchApkFile);
-            return true;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return false;
+    @Override
+    @NonNull
+    public String getName() {
+        return name;
     }
 
-    public Resources getResources() {
-        return mResources;
+    @Override
+    @NonNull
+    public String getValue() {
+        return value;
+    }
+
+    @NonNull
+    @Override
+    public String getDocumentation() {
+        return documentation;
+    }
+
+    @NonNull
+    @Override
+    public Set<String> getAnnotations() {
+        return annotations;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        ClassFieldImpl that = (ClassFieldImpl) o;
+
+        if (!name.equals(that.name)) return false;
+        if (!type.equals(that.type)) return false;
+        if (!value.equals(that.value)) return false;
+        if (!annotations.equals(that.annotations)) return false;
+        if (!documentation.equals(that.documentation)) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = type.hashCode();
+        result = 31 * result + name.hashCode();
+        result = 31 * result + value.hashCode();
+        result = 31 * result + annotations.hashCode();
+        result = 31 * result + documentation.hashCode();
+        return result;
     }
 }

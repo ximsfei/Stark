@@ -205,7 +205,7 @@
 package com.ximsfei.stark.gradle.asm.monitor
 
 import com.ximsfei.stark.gradle.util.Plog
-import org.gradle.internal.hash.HashUtil
+import com.ximsfei.stark.gradle.util.hash.HashUtil
 import org.objectweb.asm.tree.AbstractInsnNode
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.FrameNode

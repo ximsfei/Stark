@@ -27,3 +27,19 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 }
+
+apply plugin: 'maven'
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: "file:///Users/ximsfei/local/repo")
+            pom.project {
+                groupId "com.ximsfei.stark"
+                artifactId "core"
+                version "1.0.0"
+            }
+
+        }
+    }
+}

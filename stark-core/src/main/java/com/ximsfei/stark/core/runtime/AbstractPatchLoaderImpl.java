@@ -219,15 +219,10 @@ public abstract class AbstractPatchLoaderImpl implements PatchLoader {
         set = AtomicReference.class.getMethod("set", Object.class);
     }
 
-    public abstract String getBuildHash();
-
     public abstract String[] getPatchedClasses();
 
     @Override
     public boolean load() {
-        if (!StarkConfig.BUILD_HASH.equals(getBuildHash())) {
-            return false;
-        }
         for (String className : getPatchedClasses()) {
             try {
                 ClassLoader cl = getClass().getClassLoader();
