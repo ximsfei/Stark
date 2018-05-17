@@ -283,6 +283,10 @@ class StarkVariantScope {
         new File(getStarkBuildDir(), StarkConstants.STARK_BUILD_APK_FILE)
     }
 
+    def getStarkBuildMappingFile() {
+        new File(getStarkBuildDir(), StarkConstants.STARK_BUILD_MAPPING_FILE)
+    }
+
     File getBackupDir() {
         def starkDir = new File(project.getProjectDir(), StarkConstants.STARK_DIR)
         def appDir = new File(starkDir, variant.applicationId)
@@ -321,5 +325,9 @@ class StarkVariantScope {
 
     def getBackupApkFile() {
         new File(getBackupDir(), StarkConstants.STARK_BUILD_APK_FILE)
+    }
+
+    def getBackupMappingFile() {
+        new File(getBackupDir(), StarkConstants.STARK_BUILD_MAPPING_FILE)
     }
 }

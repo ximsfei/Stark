@@ -232,7 +232,6 @@ class StarkPlugin implements Plugin<Project> {
         }
         if (android instanceof AppExtension) {
             android.registerTransform(new StarkTransform(project, android))
-            android.transforms
             TaskManager taskManager = new TaskManager(project, android, stark)
             taskManager.configTasks()
 //            project.gradle.addListener(new TaskExecutionListener() {

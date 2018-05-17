@@ -232,12 +232,14 @@ abstract class SysTask<T extends Task> {
     }
 
     void config() {
-        task.doFirst {
-            beforeExecute()
-        }
-        task.doLast {
-//            Plog.q "$task.name doLast"
-            afterExecute()
+        if (task != null) {
+            task.doFirst {
+                beforeExecute()
+            }
+            task.doLast {
+//                Plog.q "$task.name doLast"
+                afterExecute()
+            }
         }
     }
 

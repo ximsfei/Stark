@@ -209,7 +209,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.res.Resources;
 
 import com.ximsfei.stark.core.runtime.PatchLoader;
-import com.ximsfei.stark.core.runtime.StarkConfig;
 import com.ximsfei.stark.core.util.ZipUtils;
 
 import java.io.File;
@@ -234,7 +233,6 @@ public class Stark {
     }
 
     public boolean loadPatch(Context context, String path) {
-        StarkConfig.init(context);
         DexClassLoader dexClassLoader = new DexClassLoader(path,
                 context.getCacheDir().getPath(), context.getCacheDir().getPath(),
                 getClass().getClassLoader());

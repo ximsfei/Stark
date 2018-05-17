@@ -220,10 +220,12 @@ public class StarkConstants {
     public static final String STARK_BUILD_HASH_FILE = "build-hash";
     public static final String STARK_PUBLIC_TXT_FILE = "public.txt";
     public static final String STARK_BUILD_APK_FILE = "stark.apk";
+    public static final String STARK_BUILD_MAPPING_FILE = "mapping.txt";
 
     public static final String STARK_CORE_PACKAGE_NAME = "com.ximsfei.stark.core";
     public static final String STARK_CORE_RUNTIME_PACKAGE = "com/ximsfei/stark/core/runtime";
     public static final String STARK_CORE_RUNTIME_PACKAGE_NAME = STARK_CORE_PACKAGE_NAME + ".runtime";
+    public static final String SKIP_STARK_CORE_RUNTIME_CONFIG = "com/ximsfei/stark/core/runtime/StarkConfig.class";
 
     public static final String STARK_PROPERTIES_FILE = "stark.properties";
     public static final String KEY_STARK_PATCH_BUILD_HASH = "stark.patch.hash";

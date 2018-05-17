@@ -242,7 +242,7 @@ class GenerateStarkConfigTask extends SysTask<GenerateBuildConfig> {
     void afterExecute() {
         StarkConfigGenerator generator = new StarkConfigGenerator(
                 task.getSourceOutputDir(),
-                task.getBuildConfigPackageName())
+                StarkConstants.STARK_CORE_RUNTIME_PACKAGE_NAME)
 
         // Hack (see IDEA-100046): We want to avoid reporting "condition is always true"
         // from the data flow inspection, so use a non-constant value. However, that defeats
@@ -342,21 +342,6 @@ class GenerateStarkConfigTask extends SysTask<GenerateBuildConfig> {
                         writer.emitSingleLineComment((String) item)
                     }
                 }
-                writer.beginInitializer(true)
-                for (ClassField field : mFields) {
-                    writer.emitStatement(StarkConstants.STARK_CORE_RUNTIME_PACKAGE_NAME
-                            + "." + STARK_CONFIG_CLASS_NAME
-                            + "." + field.name + " = " + field.name)
-                }
-
-                for (Object item : mItems) {
-                    if (item instanceof ClassField) {
-                        ClassField field = (ClassField) item
-                        writer.emitStatement(StarkConstants.STARK_CORE_RUNTIME_PACKAGE_NAME
-                                + "." + STARK_CONFIG_CLASS_NAME + "." + field.name + " = " + field.name)
-                    }
-                }
-                writer.endInitializer()
 
                 writer.endType()
             } catch (Throwable e) {

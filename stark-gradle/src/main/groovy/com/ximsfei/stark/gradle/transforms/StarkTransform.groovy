@@ -205,37 +205,19 @@
 package com.ximsfei.stark.gradle.transforms
 
 import com.android.SdkConstants
-import com.android.annotations.NonNull
-import com.android.build.api.transform.DirectoryInput
 import com.android.build.api.transform.Format
-import com.android.build.api.transform.JarInput
 import com.android.build.api.transform.QualifiedContent
 import com.android.build.api.transform.Transform
 import com.android.build.api.transform.TransformException
-import com.android.build.api.transform.TransformInput
 import com.android.build.api.transform.TransformInvocation
 import com.android.build.api.transform.TransformOutputProvider
 import com.android.build.gradle.BaseExtension
-import com.google.common.collect.ImmutableList
 import com.google.common.collect.ImmutableSet
 import com.google.common.collect.Sets
 import com.google.common.io.Files
 import com.ximsfei.stark.gradle.StarkConstants
-import com.ximsfei.stark.gradle.asm.monitor.MonitorVisitor
-import com.ximsfei.stark.gradle.asm.monitor.PatchVisitor
-import com.ximsfei.stark.gradle.asm.monitor.RedirectionVisitor
-import com.ximsfei.stark.gradle.exception.StarkException
-import com.ximsfei.stark.gradle.scope.GlobalScope
-import com.ximsfei.stark.gradle.util.AndroidClassPath
-import com.ximsfei.stark.gradle.util.Plog
-import com.ximsfei.stark.gradle.util.hash.HashUtil
 import groovy.io.FileType
-import org.apache.commons.io.FileUtils
 import org.gradle.api.Project
-import org.objectweb.asm.ClassReader
-import org.objectweb.asm.ClassWriter
-import org.objectweb.asm.MethodVisitor
-import org.objectweb.asm.Opcodes
 
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
@@ -280,352 +262,54 @@ class StarkTransform extends Transform {
         if (outputProvider == null) {
             throw new IllegalStateException("StarkTransform called with null output")
         }
-        if (GlobalScope.isGeneratePatch) {
-            doPatch(invocation)
-        } else {
-            doMonitor(invocation)
-        }
-    }
-
-    /**
-     * @param invocation
-     */
-    void doPatch(TransformInvocation invocation) {
-        def outputProvider = invocation.outputProvider
-        def starkScope = GlobalScope.currentTransformStarkScope
-        if (starkScope == null) {
-            // do nothing
-            Plog.q "Current stark scope is null. Do nothing."
-        }
-
-        def backupClassFile = starkScope.getBackupMonitorClassFile()
-        if (!backupClassFile.exists()) {
-            throw new StarkException("Backup class file: $backupClassFile.absolutePath is not exists.")
-        }
-        Map<String, String> backupClassHashMap = [:]
-        backupClassFile.eachLine { line ->
-            def splits = line.split("->")
-            if (splits.length == 2) {
-                backupClassHashMap.put(splits[0], splits[1])
-            }
-        }
-
-        // first get all referenced input to construct a class loader capable of loading those
-        // classes. This is useful for ASM as it needs to load classes
-        List<URL> referencedInputUrls = getAllClassesLocations(invocation.getInputs(), invocation.getReferencedInputs())
-
-        URLClassLoader baseClassLoader = new NonDelegatingUrlClassloader(referencedInputUrls)
-
-        final ImmutableList.Builder<String> generatedClassesBuilder = ImmutableList.builder()
-        def patchFileDir = outputProvider.getContentLocation("enhanced_classes",
-                ImmutableSet.of(QualifiedContent.DefaultContentType.CLASSES),
+        def starkJar = outputProvider.getContentLocation("transformStark.jar",
+                getInputTypes(),
                 getScopes(),
-                Format.DIRECTORY)
-
+                Format.JAR)
+        def jarOutputStream = new JarOutputStream(new FileOutputStream(starkJar))
         invocation.inputs.each { input ->
             input.directoryInputs.each { dirInput ->
-                def dest = outputProvider.getContentLocation(dirInput.name, dirInput.contentTypes, dirInput.scopes, Format.DIRECTORY)
-//                FileUtils.copyDirectory(dirInput.file, dest)
-                if (starkScope == null) {
-                    return
-                }
                 dirInput.file.eachFileRecurse(FileType.FILES) { file ->
                     if (file.name.endsWith(SdkConstants.DOT_CLASS)) {
-                        ClassReader classReader = new ClassReader(file.bytes)
-                        String className = classReader.className.replace(File.separator, ".")
-                        String classHash = HashUtil.sha256(file.bytes).asHexString()
-                        if (backupClassHashMap.get(className) == classHash) {
-                            return
-                        }
-                        File outputFile = new File(PatchVisitor.VISITOR_BUILDER.getMangledRelativeClassFilePath(
-                                file.absolutePath.replace(dirInput.file.absolutePath, dest.absolutePath)))
-                        boolean instrumented = MonitorVisitor.instrumentClassFile(file, outputFile, baseClassLoader, PatchVisitor.VISITOR_BUILDER)
-                        if (!instrumented) {
-                            Plog.q "$className instrumented fialed."
-                            return
-                        }
-                        generatedClassesBuilder.add(className)
-                    }
-                }
-            }
-            input.jarInputs.each { jarInput ->
-                def dest = outputProvider.getContentLocation(jarInput.name, jarInput.contentTypes, jarInput.scopes, Format.JAR)
-//                FileUtils.copyFile(jarInput.file, dest)
-                if (starkScope == null) {
-                    return
-                }
-                if (jarInput.file.absolutePath.endsWith(SdkConstants.DOT_JAR)) {
-                    def jarFile = new JarFile(jarInput.file)
-                    def jarEntries = jarFile.entries()
-                    def jarOutputStream = new JarOutputStream(new FileOutputStream(dest))
-
-                    while (jarEntries.hasMoreElements()) {
-                        def entry = (JarEntry) jarEntries.nextElement()
-                        def entryName = entry.name
-                        if (entryName.endsWith(SdkConstants.DOT_CLASS)) {
-                            def zipEntry = new ZipEntry(PatchVisitor.VISITOR_BUILDER.getMangledRelativeClassFilePath(entryName))
-                            def inputStream = jarFile.getInputStream(entry)
-                            def classBytes = inputStream.bytes
-
-                            ClassReader classReader = new ClassReader(classBytes)
-                            String className = classReader.className.replace(File.separator, ".")
-                            String classHash = HashUtil.sha256(classBytes).asHexString()
-                            if (backupClassHashMap.get(className) == classHash) {
-                                continue
-                            }
-
-                            try {
-                                byte[] bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
-                                        baseClassLoader, PatchVisitor.VISITOR_BUILDER)
-                                zipEntry.setMethod(entry.getMethod())
-                                zipEntry.setTime(entry.getTime())
-                                zipEntry.setComment(entry.getComment())
-                                zipEntry.setExtra(entry.getExtra())
-                                if (entry.getMethod() == ZipEntry.STORED) {
-                                    zipEntry.setSize(entry.getSize())
-                                    zipEntry.setCrc(entry.getCrc())
-                                }
-                                if (bytes != null) {
-                                    jarOutputStream.putNextEntry(zipEntry)
-                                    jarOutputStream.write(bytes)
-                                    jarOutputStream.closeEntry()
-                                    generatedClassesBuilder.add(className)
-                                } else {
-                                    Plog.q "$className instrumentClass failed."
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace()
-                            }
-                        }
-                    }
-                    jarOutputStream.close()
-                    jarFile.close()
-                }
-            }
-        }
-        writePatchFileContents(generatedClassesBuilder.build(), patchFileDir, starkScope.buildHash)
-    }
-
-    /**
-     * @param invocation
-     */
-    void doMonitor(TransformInvocation invocation) {
-        def outputProvider = invocation.outputProvider
-        def starkScope = GlobalScope.currentTransformStarkScope
-        if (starkScope == null) {
-            // do nothing
-            Plog.q "Current stark scope is null. Do nothing."
-        }
-
-        // first get all referenced input to construct a class loader capable of loading those
-        // classes. This is useful for ASM as it needs to load classes
-        List<URL> referencedInputUrls = getAllClassesLocations(invocation.getInputs(), invocation.getReferencedInputs())
-
-        URLClassLoader baseClassLoader = new NonDelegatingUrlClassloader(referencedInputUrls)
-
-        def monitorClassFile = starkScope.getStarkBuildMonitorClassFile()
-        monitorClassFile.createNewFile()
-
-        invocation.inputs.each { input ->
-            input.directoryInputs.each { dirInput ->
-                def dest = outputProvider.getContentLocation(dirInput.name, dirInput.contentTypes, dirInput.scopes, Format.DIRECTORY)
-                FileUtils.copyDirectory(dirInput.file, dest)
-                if (starkScope == null) {
-                    return
-                }
-                dest.eachFileRecurse(FileType.FILES) { file ->
-                    if (file.name.endsWith(SdkConstants.DOT_CLASS)) {
-                        writeClassHash(monitorClassFile, file.bytes)
-                        MonitorVisitor.instrumentClassFile(file, file, baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
-                    }
-                }
-            }
-            input.jarInputs.each { jarInput ->
-                def dest = outputProvider.getContentLocation(jarInput.name, jarInput.contentTypes, jarInput.scopes, Format.JAR)
-//                FileUtils.copyFile(jarInput.file, dest)
-                if (starkScope == null) {
-                    return
-                }
-                if (jarInput.file.absolutePath.endsWith(SdkConstants.DOT_JAR)) {
-                    def jarFile = new JarFile(jarInput.file)
-                    def jarEntries = jarFile.entries()
-                    def jarOutputStream = new JarOutputStream(new FileOutputStream(dest))
-
-                    while (jarEntries.hasMoreElements()) {
-                        def entry = (JarEntry) jarEntries.nextElement()
-                        def entryName = entry.name
-                        def zipEntry = new ZipEntry(entryName)
-                        def inputStream = jarFile.getInputStream(entry)
-                        jarOutputStream.putNextEntry(zipEntry)
-                        def bytes
-                        if (entryName.endsWith(SdkConstants.DOT_CLASS)) {
-                            def classBytes = inputStream.bytes
-                            writeClassHash(monitorClassFile, classBytes)
-
-                            try {
-                                bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
-                                        baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
-                            } catch (Exception e) {
-                                e.printStackTrace()
-                            }
-                            if (bytes == null) {
-                                bytes = classBytes
-                            }
-                        } else {
-                            bytes = inputStream.bytes
-                        }
-                        jarOutputStream.write(bytes)
+                        def jarEntry = new JarEntry(file.absolutePath.substring(dirInput.file.absolutePath.length() + 1))
+                        jarOutputStream.putNextEntry(jarEntry)
+                        jarOutputStream.write(Files.toByteArray(file))
                         jarOutputStream.closeEntry()
                     }
-                    jarOutputStream.close()
+                }
+            }
+            input.jarInputs.each { jarInput ->
+                if (jarInput.file.name.endsWith(SdkConstants.DOT_JAR)) {
+                    def jarFile = new JarFile(jarInput.file)
+                    def jarEntries = jarFile.entries()
+
+                    while (jarEntries.hasMoreElements()) {
+                        def entry = (JarEntry) jarEntries.nextElement()
+                        def entryName = entry.name
+                        if (entryName == StarkConstants.SKIP_STARK_CORE_RUNTIME_CONFIG) {
+                            // skip com.ximsfei.stark.core.runtime.StarkConfig
+                            continue
+                        }
+                        if (entryName.endsWith(SdkConstants.DOT_CLASS)) {
+                            def jarEntry = new JarEntry(entryName)
+                            def inputStream = jarFile.getInputStream(entry)
+                            jarEntry.setMethod(entry.getMethod())
+                            jarEntry.setTime(entry.getTime())
+                            jarEntry.setComment(entry.getComment())
+                            jarEntry.setExtra(entry.getExtra())
+                            if (entry.getMethod() == ZipEntry.STORED) {
+                                jarEntry.setSize(entry.getSize())
+                                jarEntry.setCrc(entry.getCrc())
+                            }
+                            jarOutputStream.putNextEntry(jarEntry)
+                            jarOutputStream.write(inputStream.bytes)
+                            jarOutputStream.closeEntry()
+                        }
+                    }
                     jarFile.close()
                 }
             }
         }
-    }
-
-    private void writeClassHash(File monitorClassFile, byte[] classBytes) {
-        ClassReader classReader = new ClassReader(classBytes)
-        String className = classReader.className.replace(File.separator, ".")
-        Plog.q "jar classReader = " + className
-        monitorClassFile.append(className)
-        monitorClassFile.append("->")
-        monitorClassFile.append(HashUtil.sha256(classBytes).asHexString())
-        monitorClassFile.append("\n")
-    }
-
-    /**
-     * Use asm to generate a concrete subclass of the AppPathLoaderImpl class.
-     * It only implements one method :
-     *      String[] getPatchedClasses();
-     *
-     * The method is supposed to return the list of classes that were patched in this iteration.
-     * This will be used by the Stark runtime to load all patched classes and register them
-     * as overrides on the original classes.2 class files.
-     *
-     * @param patchFileContents list of patched class names.
-     * @param outputDir output directory where to generate the .class file in.
-     */
-    private static void writePatchFileContents(
-            @NonNull ImmutableList<String> patchFileContents,
-            @NonNull File outputDir, String buildHash) {
-
-        ClassWriter cw = new ClassWriter(0)
-        MethodVisitor mv
-
-        cw.visit(Opcodes.V1_6, Opcodes.ACC_PUBLIC + Opcodes.ACC_SUPER,
-                MonitorVisitor.STARK_PATCH_LOADER_IMPL, null,
-                MonitorVisitor.ABSTRACT_PATCH_LOADER_IMPL, null)
-
-        // Add the build ID to force the patch file to be repackaged.
-//        cw.visitField(Opcodes.ACC_PUBLIC + Opcodes.ACC_STATIC + Opcodes.ACC_FINAL,
-//                "BUILD_HASH", "Ljava/lang/String;", null, buildHash)
-
-//        {
-        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null)
-        mv.visitCode()
-        mv.visitVarInsn(Opcodes.ALOAD, 0)
-        mv.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                MonitorVisitor.ABSTRACT_PATCH_LOADER_IMPL,
-                "<init>", "()V", false)
-        mv.visitInsn(Opcodes.RETURN)
-        mv.visitMaxs(1, 1)
-        mv.visitEnd()
-//        }
-//        {
-//        mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "getBuildHash", "()Ljava/lang/String;", null, null)
-//        mv.visitCode()
-//        mv.visitVarInsn(Opcodes.ALOAD, 0)
-//        mv.visitLdcInsn(buildHash)
-//        mv.visitInsn(Opcodes.ARETURN)
-//        mv.visitMaxs(1, 1)
-//        mv.visitEnd()
-//        }
-//        {
-        mv = cw.visitMethod(Opcodes.ACC_PUBLIC,
-                "getPatchedClasses", "()[Ljava/lang/String;", null, null)
-        mv.visitCode()
-        mv.visitIntInsn(Opcodes.BIPUSH, patchFileContents.size())
-        mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/String")
-        for (int index = 0; index < patchFileContents.size(); index++) {
-            mv.visitInsn(Opcodes.DUP)
-            mv.visitIntInsn(Opcodes.BIPUSH, index)
-            mv.visitLdcInsn(patchFileContents.get(index))
-            mv.visitInsn(Opcodes.AASTORE)
-        }
-        mv.visitInsn(Opcodes.ARETURN)
-        mv.visitMaxs(4, 1)
-        mv.visitEnd()
-//        }
-        cw.visitEnd()
-
-        byte[] classBytes = cw.toByteArray()
-        File outputFile = new File(outputDir, MonitorVisitor.STARK_PATCH_LOADER_IMPL + ".class")
-        try {
-            Files.createParentDirs(outputFile)
-            Files.write(classBytes, outputFile)
-        } catch (IOException e) {
-            throw new RuntimeException(e)
-        }
-    }
-
-    /**
-     * Calculate a list of {@link URL} that represent all the directories containing classes
-     * either directly belonging to this project or referencing it.
-     *
-     * @param inputs the project's inputs
-     * @param referencedInputs the project's referenced inputs
-     * @return a {@link List} or {@link URL} for all the locations.
-     * @throws MalformedURLException if once the locatio
-     */
-    @NonNull
-    private List<URL> getAllClassesLocations(
-            @NonNull Collection<TransformInput> inputs,
-            @NonNull Collection<TransformInput> referencedInputs) throws MalformedURLException {
-
-        List<URL> referencedInputUrls = new ArrayList<>()
-
-        // add the bootstrap classpath for jars like android.jar
-//        for (File file : transformScope.getInstantRunBootClasspath()) {
-//            referencedInputUrls.add(file.toURI().toURL())
-//        }
-        // add android.jar classpath
-        String androidJarPath = AndroidClassPath.getAndroidJarPath(project, android)
-        referencedInputUrls.add(new File(androidJarPath).toURI().toURL())
-
-        // now add the project dependencies.
-        for (TransformInput referencedInput : referencedInputs) {
-            addAllClassLocations(referencedInput, referencedInputUrls)
-        }
-
-        // and finally add input folders.
-        for (TransformInput input : inputs) {
-            addAllClassLocations(input, referencedInputUrls)
-        }
-        return referencedInputUrls
-    }
-
-    private static void addAllClassLocations(TransformInput transformInput, List<URL> into)
-            throws MalformedURLException {
-
-        for (DirectoryInput directoryInput : transformInput.getDirectoryInputs()) {
-            into.add(directoryInput.getFile().toURI().toURL())
-        }
-        for (JarInput jarInput : transformInput.getJarInputs()) {
-            into.add(jarInput.getFile().toURI().toURL())
-        }
-    }
-
-    private static class NonDelegatingUrlClassloader extends URLClassLoader {
-
-        NonDelegatingUrlClassloader(@NonNull List<URL> urls) {
-            super(urls.toArray(new URL[urls.size()]))
-        }
-
-        @Override
-        URL getResource(String name) {
-            // Never delegate to bootstrap classes.
-            return findResource(name)
-        }
+        jarOutputStream.close()
     }
 }
