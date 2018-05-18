@@ -258,11 +258,23 @@ class StarkPlugin implements Plugin<Project> {
         File starkFile = new File(project.projectDir, StarkConstants.STARK_PROPERTIES_FILE)
         if (!starkFile.exists()) {
             starkFile.createNewFile()
-            starkFile.append("autoBackup=false\n")
-            starkFile.append("allStark=false\n")
-            starkFile.append("releaseStark=true\n")
-            starkFile.append("multiDexEnabled=false\n")
-            starkFile.append("starkFile=\n")
+            starkFile.append("# If autoBackup configuration is true.\n")
+            starkFile.append("# Stark plugin will automatically backup the files needed to generate the patch.\n")
+            starkFile.append("# Otherwise, you need to perform the stark backup task manually.\n")
+            starkFile.append("autoBackup=false\n\n")
+
+            starkFile.append("# If allStark configuration is true.\n")
+            starkFile.append("# Stark plugin will inject redirection code into all BuildType(debug/release).\n")
+            starkFile.append("# You'd better disable this configuration at the development stage.\n")
+            starkFile.append("allStark=false\n\n")
+
+            starkFile.append("# If releaseStark configuration is true.\n")
+            starkFile.append("# Stark plugin will inject redirection code into release stage.\n")
+            starkFile.append("releaseStark=true\n\n")
+
+            starkFile.append("# If your project needs to use multidex.\n")
+            starkFile.append("# You'd better get rid of the `multiDexEnabled = true` in build.gradle and enable it here.\n")
+            starkFile.append("multiDexEnabled=false\n\n")
         }
         Properties starkProperties = new Properties()
         starkProperties.load(new FileInputStream(starkFile))
@@ -270,6 +282,5 @@ class StarkPlugin implements Plugin<Project> {
         GlobalScope.allStark = Boolean.valueOf(starkProperties.get("allStark"))
         GlobalScope.releaseStark = Boolean.valueOf(starkProperties.get("releaseStark"))
         GlobalScope.multiDexEnabled = Boolean.valueOf(starkProperties.get("multiDexEnabled"))
-        GlobalScope.starkFile = starkProperties.get("starkFile")
     }
 }

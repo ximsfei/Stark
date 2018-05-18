@@ -355,10 +355,7 @@ class TransformStarkTask extends SysTask<DefaultTask> {
     }
 
     private void resolveStarkRules(Set<String> classNames, HashMap<String, String> classesMapping) {
-        if (GlobalScope.starkFile == null || GlobalScope.starkFile == "") {
-            GlobalScope.starkFile = StarkConstants.DEFAULT_STARK_RULES_FILE
-        }
-        def rulesFile = new File(project.projectDir, GlobalScope.starkFile)
+        def rulesFile = new File(project.projectDir, StarkConstants.DEFAULT_STARK_RULES_FILE)
         if (!rulesFile.exists()) {
             rulesFile.createNewFile()
             rulesFile.append("# Add project specific stark rules here.\n")

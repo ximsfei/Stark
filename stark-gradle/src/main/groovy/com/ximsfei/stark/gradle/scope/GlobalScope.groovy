@@ -210,5 +210,4 @@ class GlobalScope {
     static boolean allStark = false
     static boolean releaseStark = true
     static boolean multiDexEnabled = false
-    static String starkFile
 }
