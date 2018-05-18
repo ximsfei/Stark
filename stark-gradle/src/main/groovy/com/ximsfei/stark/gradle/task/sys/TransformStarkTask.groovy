@@ -318,36 +318,12 @@ class TransformStarkTask extends SysTask<DefaultTask> {
         }
         Set<String> classNames = []
         if (classesMapping.isEmpty()) {
-            collectAllClassNames(outputJar, classNames)
+            resolveAllClassNames(outputJar, classNames)
         }
-        if (stark.starkFiles.empty) {
-            stark.starkFiles.add(StarkConstants.DEFAULT_STARK_RULES_FILE)
-            generateDefaultStarkRules()
-        } else if (stark.starkFiles.contains(StarkConstants.DEFAULT_STARK_RULES_FILE)) {
-            generateDefaultStarkRules()
-        }
-        for (String filename : stark.starkFiles) {
-            File rulesFile = new File(project.projectDir, filename)
-            rulesFile.eachLine { line ->
-                if (!line.startsWith("#")) {
-                    String[] splits = line.split(":")
-                    if (splits.length == 2) {
-                        Set<String> mappedClassNames = resolvedMappedClassNames(splits[1].trim(), classNames, classesMapping)
-                        switch (splits[0].trim()) {
-                            case StarkConstants.KEY_STARK_RULES_INCLUDE:
-                                includeClasses.addAll(mappedClassNames)
-                                break
-                            case StarkConstants.KEY_STARK_RULES_EXCLUDE:
-                                excludeClasses.addAll(mappedClassNames)
-                                break
-                        }
-                    }
-                }
-            }
-        }
+        resolveStarkRules(classNames, classesMapping)
     }
 
-    private void collectAllClassNames(File outputJar, Set<String> outClassNames) {
+    private void resolveAllClassNames(File outputJar, Set<String> outClassNames) {
         JarFile jarFile = new JarFile(outputJar)
         Enumeration<JarEntry> entries = jarFile.entries()
         while (entries.hasMoreElements()) {
@@ -358,7 +334,7 @@ class TransformStarkTask extends SysTask<DefaultTask> {
         }
     }
 
-    private Set<String> resolvedMappedClassNames(String packageName, Set<String> classNames, Map<String, String> classesMapping) {
+    private Set<String> resolveMappedClassNames(String packageName, Set<String> classNames, Map<String, String> classesMapping) {
         Set<String> mappedClassNames = []
         if (packageName != null && packageName != "") {
             if (classesMapping.isEmpty()) {
@@ -378,16 +354,35 @@ class TransformStarkTask extends SysTask<DefaultTask> {
         mappedClassNames
     }
 
-    private void generateDefaultStarkRules() {
-        def defaultFile = new File(project.projectDir, StarkConstants.DEFAULT_STARK_RULES_FILE)
-        if (!defaultFile.exists()) {
-            defaultFile.createNewFile()
-            defaultFile.append("# Add project specific stark rules here.\n")
-            defaultFile.append("# include packages that need to be fixed in the future.\n")
-            defaultFile.append("# exclude packages that never to be fixed in the future.\n\n")
-//            defaultFile.append("${StarkConstants.KEY_STARK_RULES_INCLUDE}: ${StarkConstants.STARK_CORE_PACKAGE_NAME}.\n")
-            defaultFile.append("${StarkConstants.KEY_STARK_RULES_INCLUDE}: ${android.defaultConfig.applicationId}.\n\n")
-            defaultFile.append("${StarkConstants.KEY_STARK_RULES_EXCLUDE}: android.support.\n")
+    private void resolveStarkRules(Set<String> classNames, HashMap<String, String> classesMapping) {
+        if (GlobalScope.starkFile == null || GlobalScope.starkFile == "") {
+            GlobalScope.starkFile = StarkConstants.DEFAULT_STARK_RULES_FILE
+        }
+        def rulesFile = new File(project.projectDir, GlobalScope.starkFile)
+        if (!rulesFile.exists()) {
+            rulesFile.createNewFile()
+            rulesFile.append("# Add project specific stark rules here.\n")
+            rulesFile.append("# include packages that need  to be fixed in the future.\n")
+            rulesFile.append("# exclude packages that never to be fixed in the future.\n\n")
+//            rulesFile.append("${StarkConstants.KEY_STARK_RULES_INCLUDE}: ${StarkConstants.STARK_CORE_PACKAGE_NAME}.\n")
+            rulesFile.append("${StarkConstants.KEY_STARK_RULES_INCLUDE}: ${android.defaultConfig.applicationId}.\n\n")
+            rulesFile.append("${StarkConstants.KEY_STARK_RULES_EXCLUDE}: android.support.\n")
+        }
+        rulesFile.eachLine { line ->
+            if (!line.startsWith("#")) {
+                String[] splits = line.split(":")
+                if (splits.length == 2) {
+                    Set<String> mappedClassNames = resolveMappedClassNames(splits[1].trim(), classNames, classesMapping)
+                    switch (splits[0].trim()) {
+                        case StarkConstants.KEY_STARK_RULES_INCLUDE:
+                            includeClasses.addAll(mappedClassNames)
+                            break
+                        case StarkConstants.KEY_STARK_RULES_EXCLUDE:
+                            excludeClasses.addAll(mappedClassNames)
+                            break
+                    }
+                }
+            }
         }
     }
 

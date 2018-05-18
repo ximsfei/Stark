@@ -225,26 +225,51 @@ class StarkPlugin implements Plugin<Project> {
 
         for (name in project.gradle.startParameter.taskNames) {
             if (name.contains(StarkConstants.TASK_GENERATE_PATCH)) {
-                Plog.q "task name = $name"
                 GlobalScope.isGeneratePatch = true
                 break
             }
         }
         if (android instanceof AppExtension) {
-            android.registerTransform(new StarkTransform(project, android))
+            resolveStarkProperties(project)
+
+            android.registerTransform(new StarkTransform())
+
+            Plog.q "Stark multiDexEnabled = ${GlobalScope.multiDexEnabled} isGeneratePatch = ${GlobalScope.isGeneratePatch}"
+            android.defaultConfig.multiDexEnabled = GlobalScope.multiDexEnabled && !GlobalScope.isGeneratePatch
+
             TaskManager taskManager = new TaskManager(project, android, stark)
             taskManager.configTasks()
-//            project.gradle.addListener(new TaskExecutionListener() {
-//                @Override
-//                void beforeExecute(Task task) {
-//                    Plog.q "task $task.name"
-//                }
-//
-//                @Override
-//                void afterExecute(Task task, TaskState taskState) {
-//
-//                }
-//            })
+
+            project.gradle.addListener(new TaskExecutionListener() {
+                @Override
+                void beforeExecute(Task task) {
+                    Plog.q "task $task.name"
+                }
+
+                @Override
+                void afterExecute(Task task, TaskState taskState) {
+
+                }
+            })
         }
+    }
+
+    private static void resolveStarkProperties(Project project) {
+        File starkFile = new File(project.projectDir, StarkConstants.STARK_PROPERTIES_FILE)
+        if (!starkFile.exists()) {
+            starkFile.createNewFile()
+            starkFile.append("autoBackup=false\n")
+            starkFile.append("allStark=false\n")
+            starkFile.append("releaseStark=true\n")
+            starkFile.append("multiDexEnabled=false\n")
+            starkFile.append("starkFile=\n")
+        }
+        Properties starkProperties = new Properties()
+        starkProperties.load(new FileInputStream(starkFile))
+        GlobalScope.autoBackup = Boolean.valueOf(starkProperties.get("autoBackup"))
+        GlobalScope.allStark = Boolean.valueOf(starkProperties.get("allStark"))
+        GlobalScope.releaseStark = Boolean.valueOf(starkProperties.get("releaseStark"))
+        GlobalScope.multiDexEnabled = Boolean.valueOf(starkProperties.get("multiDexEnabled"))
+        GlobalScope.starkFile = starkProperties.get("starkFile")
     }
 }

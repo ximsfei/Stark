@@ -214,6 +214,7 @@ import com.ximsfei.stark.gradle.task.sys.AssembleTask
 import com.ximsfei.stark.gradle.task.sys.GenerateStarkConfigTask
 import com.ximsfei.stark.gradle.task.sys.ProcessResourcesTask
 import com.ximsfei.stark.gradle.task.sys.TransformStarkTask
+import com.ximsfei.stark.gradle.util.Plog
 import org.apache.commons.io.FileUtils
 import org.gradle.api.Project
 
@@ -231,6 +232,14 @@ class TaskManager {
     void configTasks() {
         project.afterEvaluate {
             android.applicationVariants.all { ApkVariant variant ->
+                if (!GlobalScope.allStark) {
+                    if (!GlobalScope.releaseStark) {
+                        return
+                    }
+                    if (!"release".equalsIgnoreCase(variant.buildType.name)) {
+                        return
+                    }
+                }
                 def starkScope = new StarkVariantScope(project, variant)
                 configSysTasks(starkScope, variant)
                 configStarkTasks(starkScope, variant)

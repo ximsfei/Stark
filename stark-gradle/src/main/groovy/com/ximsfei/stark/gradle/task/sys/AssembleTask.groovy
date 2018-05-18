@@ -253,7 +253,7 @@ class AssembleTask extends SysTask<DefaultTask> {
         } else {
             FileUtils.copyFile(apkFile, starkScope.getStarkBuildApkFile())
         }
-        if (stark.autoBackup) {
+        if (GlobalScope.autoBackup) {
             manager.doBackup(variant, starkScope)
         }
     }
@@ -327,11 +327,6 @@ class AssembleTask extends SysTask<DefaultTask> {
         properties.append(StarkConstants.KEY_STARK_PATCH_BUILD_TIME)
         properties.append("=")
         properties.append(System.currentTimeMillis())
-        properties.append("\n")
-
-        properties.append(StarkConstants.KEY_STARK_PATCH_BUILD_VERSION)
-        properties.append("=")
-        properties.append(stark.patchVersion)
         properties.append("\n")
 
         StarkConstants.STARK_PROPERTIES_FILE

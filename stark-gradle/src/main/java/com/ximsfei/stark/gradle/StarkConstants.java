@@ -230,7 +230,6 @@ public class StarkConstants {
     public static final String STARK_PROPERTIES_FILE = "stark.properties";
     public static final String KEY_STARK_PATCH_BUILD_HASH = "stark.patch.hash";
     public static final String KEY_STARK_PATCH_BUILD_TIME = "stark.patch.time";
-    public static final String KEY_STARK_PATCH_BUILD_VERSION = "stark.patch.version";
 
     public static final String DEFAULT_STARK_RULES_FILE = "stark-rules.txt";
     public static final String KEY_STARK_RULES_INCLUDE = "-include";

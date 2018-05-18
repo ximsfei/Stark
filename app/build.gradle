@@ -16,12 +16,6 @@ buildscript {
 apply plugin: 'com.android.application'
 apply plugin: 'com.ximsfei.stark'
 
-stark {
-    autoBackup = true
-    patchVersion = 1
-//    starkFiles = ['stark-rules.txt']
-}
-
 android {
     compileSdkVersion 27
     defaultConfig {
@@ -30,7 +24,6 @@ android {
         targetSdkVersion 27
         versionCode 1
         versionName "1.0"
-        multiDexEnabled true
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {

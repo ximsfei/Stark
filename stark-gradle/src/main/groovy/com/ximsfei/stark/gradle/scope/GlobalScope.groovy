@@ -206,5 +206,9 @@ package com.ximsfei.stark.gradle.scope
 
 class GlobalScope {
     static boolean isGeneratePatch = false
-    static StarkVariantScope currentTransformStarkScope
+    static boolean autoBackup = false
+    static boolean allStark = false
+    static boolean releaseStark = true
+    static boolean multiDexEnabled = false
+    static String starkFile
 }

@@ -211,13 +211,11 @@ import com.android.build.api.transform.Transform
 import com.android.build.api.transform.TransformException
 import com.android.build.api.transform.TransformInvocation
 import com.android.build.api.transform.TransformOutputProvider
-import com.android.build.gradle.BaseExtension
 import com.google.common.collect.ImmutableSet
 import com.google.common.collect.Sets
 import com.google.common.io.Files
 import com.ximsfei.stark.gradle.StarkConstants
 import groovy.io.FileType
-import org.gradle.api.Project
 
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
@@ -225,13 +223,6 @@ import java.util.jar.JarOutputStream
 import java.util.zip.ZipEntry
 
 class StarkTransform extends Transform {
-    Project project
-    BaseExtension android
-
-    StarkTransform(Project project, BaseExtension android) {
-        this.project = project
-        this.android = android
-    }
 
     @Override
     String getName() {
