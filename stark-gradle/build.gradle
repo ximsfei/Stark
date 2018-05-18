@@ -1,4 +1,5 @@
 apply plugin: 'groovy'
+apply plugin: 'java'
 
 repositories {
     jcenter()
@@ -8,6 +9,7 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     compileOnly gradleApi()
     compileOnly 'com.android.tools.build:gradle:3.1.2'
+    implementation 'io.sigpipe:jbsdiff:1.0'
 //    implementation 'org.ow2.asm:asm:6.1.1'
 //    implementation 'org.ow2.asm:asm-analysis:6.1.1'
 //    implementation 'org.ow2.asm:asm-commons:6.1.1'

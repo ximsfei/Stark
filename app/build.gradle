@@ -4,6 +4,7 @@ buildscript {
         maven {
             url "file:///Users/ximsfei/local/repo"
         }
+        jcenter()
     }
     dependencies {
         classpath 'com.ximsfei.stark:gradle:1.0.0'
@@ -32,7 +33,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         debug {
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }

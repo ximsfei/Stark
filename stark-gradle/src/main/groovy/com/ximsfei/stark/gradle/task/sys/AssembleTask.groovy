@@ -214,6 +214,7 @@ import com.ximsfei.stark.gradle.util.AaptUtils
 import com.ximsfei.stark.gradle.util.Plog
 import com.ximsfei.stark.gradle.util.hash.HashUtil
 import groovy.io.FileType
+import io.sigpipe.jbsdiff.ui.FileUI
 import org.apache.commons.io.FileUtils
 import org.gradle.api.DefaultTask
 
@@ -286,12 +287,14 @@ class AssembleTask extends SysTask<DefaultTask> {
                 updatedResources.add(path)
                 Plog.q "add resources $path."
             } else if (HashUtil.sha256(file.bytes) != HashUtil.sha256(backupFile.bytes)) {
-                Plog.q "updated resources $path."
-                updatedResources.add(path)
+                Plog.q "filter resources $path."
                 filteredResources.add(path)
-                if (file.name == "resources.arsc") {
-
+                if (path == "resources.arsc") {
+                    path = "resources.arsc.jdiff"
+                    FileUI.diff(backupFile, file, new File(file.absolutePath + ".jdiff"))
                 }
+                Plog.q "add resources $path."
+                updatedResources.add(path)
             } else {
                 Plog.q "filter resources $path."
                 filteredResources.add(path)

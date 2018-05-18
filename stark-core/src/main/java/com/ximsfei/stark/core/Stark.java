@@ -209,9 +209,11 @@ import android.content.pm.ApplicationInfo;
 import android.content.res.Resources;
 
 import com.ximsfei.stark.core.runtime.PatchLoader;
+import com.ximsfei.stark.core.util.FileUtils;
 import com.ximsfei.stark.core.util.ZipUtils;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Enumeration;
@@ -220,6 +222,7 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import dalvik.system.DexClassLoader;
+import io.sigpipe.jbsdiff.ui.FileUI;
 
 public class Stark {
     private static final Stark sInstance = new Stark();
@@ -286,7 +289,38 @@ public class Stark {
                 if (patchEntry != null) {
                     ZipUtils.writeEntry(patchApk, zos, patchEntry);
                 } else if (name.equals("resources.arsc")) {
-                    ZipUtils.writeEntry(installedApk, zos, entry);
+                    ZipEntry jdiffEntry = patchApk.getEntry("resources.arsc.jdiff");
+                    if (jdiffEntry != null) {
+                        File arsc = new File(mergedFile.getParent(), "resources.arsc");
+                        FileUtils.copyFile(installedApk.getInputStream(entry), arsc);
+                        File jdiff = new File(mergedFile.getParent(), "resources.arsc.jdiff");
+                        FileUtils.copyFile(patchApk.getInputStream(jdiffEntry), jdiff);
+                        File newArsc = new File(mergedFile.getParent(), "resources.arsc.new");
+                        boolean merged = false;
+                        try {
+                            FileUI.patch(arsc, newArsc, jdiff);
+                            ZipEntry ze2 = new ZipEntry(entry.getName());
+                            ze2.setTime(entry.getTime());
+                            ze2.setComment(entry.getComment());
+                            ze2.setExtra(entry.getExtra());
+                            zos.putNextEntry(ze2);
+                            FileInputStream is = new FileInputStream(newArsc);
+                            byte[] bytes = new byte[is.available()];
+                            is.read(bytes);
+                            zos.write(bytes);
+                            merged = true;
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                        arsc.delete();
+                        jdiff.delete();
+                        newArsc.delete();
+                        if (!merged) {
+                            ZipUtils.writeEntry(installedApk, zos, entry);
+                        }
+                    } else {
+                        ZipUtils.writeEntry(installedApk, zos, entry);
+                    }
                 } else if (name.startsWith("assets/")
                         || name.startsWith("res/")
                         || name.equals("AndroidManifest.xml")) {
