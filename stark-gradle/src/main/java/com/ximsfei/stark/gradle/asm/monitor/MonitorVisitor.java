@@ -207,7 +207,6 @@ package com.ximsfei.stark.gradle.asm.monitor;
 import com.android.SdkConstants;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
-import com.google.common.io.Files;
 import com.ximsfei.stark.gradle.StarkConstants;
 
 import org.objectweb.asm.ClassReader;
@@ -229,7 +228,7 @@ public class MonitorVisitor extends ClassVisitor {
     public static final String RUNTIME_PACKAGE = StarkConstants.STARK_CORE_RUNTIME_PACKAGE;
     public static final Type CHANGE_TYPE = Type.getObjectType(RUNTIME_PACKAGE + "/StarkChange");
     public static final Type TARGET_API_TYPE = Type.getObjectType("android/annotation/TargetApi");
-    protected static final Type INSTANT_RELOAD_EXCEPTION = Type.getObjectType(RUNTIME_PACKAGE + "/StarkReloadException");
+    protected static final Type STARK_RELOAD_EXCEPTION = Type.getObjectType(RUNTIME_PACKAGE + "/StarkReloadException");
     protected static final Type RUNTIME_TYPE = Type.getObjectType(RUNTIME_PACKAGE + "/StarkRuntime");
     public static final String ABSTRACT_PATCH_LOADER_IMPL = RUNTIME_PACKAGE + "/AbstractPatchLoaderImpl";
     public static final String STARK_PATCH_LOADER_IMPL = RUNTIME_PACKAGE + "/StarkPatchLoaderImpl";
@@ -339,24 +338,6 @@ public class MonitorVisitor extends ClassVisitor {
      */
     protected static boolean isAccessCompatibleWithStark(int access) {
         return (access & (Opcodes.ACC_ABSTRACT | Opcodes.ACC_BRIDGE | Opcodes.ACC_NATIVE)) == 0;
-    }
-
-    public static boolean instrumentClassFile(@NonNull File inputFile, File outputFile,
-                                                   @NonNull ClassLoader baseClassLoader,
-                                                   @NonNull VisitorBuilder builder) throws IOException {
-        // if the class is not eligible for IR, return the non instrumented version or null if
-        // the override class is requested.
-        Files.createParentDirs(outputFile);
-        if (!isClassEligibleForStark(inputFile)) {
-            return false;
-        }
-        byte[] classBytes = Files.toByteArray(inputFile);
-        byte[] outputBytes = instrumentClass(inputFile.getName(), classBytes, baseClassLoader, builder);
-        if (outputBytes != null) {
-            Files.write(outputBytes, outputFile);
-            return true;
-        }
-        return false;
     }
 
     public static byte[] instrumentClass(String name, byte[] classBytes,

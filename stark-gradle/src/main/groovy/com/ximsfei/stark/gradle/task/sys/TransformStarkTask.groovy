@@ -214,6 +214,7 @@ import com.ximsfei.stark.gradle.StarkConstants
 import com.ximsfei.stark.gradle.asm.monitor.MonitorVisitor
 import com.ximsfei.stark.gradle.asm.monitor.PatchVisitor
 import com.ximsfei.stark.gradle.asm.monitor.RedirectionVisitor
+import com.ximsfei.stark.gradle.asm.monitor.SuperClassRedirection
 import com.ximsfei.stark.gradle.exception.StarkException
 import com.ximsfei.stark.gradle.scope.GlobalScope
 import com.ximsfei.stark.gradle.scope.StarkVariantScope
@@ -236,6 +237,8 @@ import java.util.jar.JarOutputStream
 import java.util.zip.ZipEntry
 
 class TransformStarkTask extends SysTask<DefaultTask> {
+    Set<String> includeClasses = []
+    Set<String> excludeClasses = []
 
     TransformStarkTask(TaskManager manager, ApkVariant variant, StarkVariantScope starkScope) {
         super(manager, variant, starkScope)
@@ -248,7 +251,7 @@ class TransformStarkTask extends SysTask<DefaultTask> {
         if (tasks.empty) {
             tasks = project.getTasksByName("transformClassesWith"
                     + StarkConstants.TRANSFORM_STARK_NAME.capitalize()
-                    + "For" + variant.buildType.name.capitalize(), false).first()
+                    + "For" + variant.buildType.name.capitalize(), false)
         }
         return tasks.first()
     }
@@ -278,15 +281,113 @@ class TransformStarkTask extends SysTask<DefaultTask> {
 
         URLClassLoader baseClassLoader = new NonDelegatingUrlClassloader(referencedInputUrls)
 
+        Set<File> mappingFiles = []
+        Transform transform = task.getTransform()
+        if (transform instanceof ProGuardTransform) {
+            File mappingFile = transform.getMappingFile()
+            FileUtils.copyFile(mappingFile, starkScope.getStarkBuildMappingFile())
+            mappingFiles.add(mappingFile)
+        }
         if (GlobalScope.isGeneratePatch) {
+            mappingFiles.add(starkScope.getBackupMappingFile())
+            collectStarkRules(outputJar, mappingFiles)
             doPatch(outputJar, baseClassLoader)
         } else {
-            Transform transform = task.getTransform()
-            if (transform instanceof ProGuardTransform) {
-                File mappingFile = transform.getMappingFile()
-                FileUtils.copyFile(mappingFile, starkScope.getStarkBuildMappingFile())
-            }
+            collectStarkRules(outputJar, mappingFiles)
             doMonitor(outputJar, baseClassLoader)
+        }
+    }
+
+    private void collectStarkRules(File outputJar, Set<File> mappingFiles) {
+        HashMap<String, String> classesMapping = []
+        for (File mappingFile : mappingFiles) {
+            if (mappingFile.exists()) {
+                mappingFile.eachLine { line ->
+                    if (line.endsWith(":")) {
+                        String[] splits = line.split("->")
+                        if (splits.length == 2) {
+                            String mappedClassName = splits[1].trim()
+                            if (mappedClassName.endsWith(":")) {
+                                mappedClassName = mappedClassName.substring(0, mappedClassName.length() - 1)
+                            }
+                            classesMapping.put(splits[0].trim(), mappedClassName)
+                        }
+                    }
+                }
+            }
+        }
+        Set<String> classNames = []
+        if (classesMapping.isEmpty()) {
+            collectAllClassNames(outputJar, classNames)
+        }
+        if (stark.starkFiles.empty) {
+            stark.starkFiles.add(StarkConstants.DEFAULT_STARK_RULES_FILE)
+            generateDefaultStarkRules()
+        } else if (stark.starkFiles.contains(StarkConstants.DEFAULT_STARK_RULES_FILE)) {
+            generateDefaultStarkRules()
+        }
+        for (String filename : stark.starkFiles) {
+            File rulesFile = new File(project.projectDir, filename)
+            rulesFile.eachLine { line ->
+                if (!line.startsWith("#")) {
+                    String[] splits = line.split(":")
+                    if (splits.length == 2) {
+                        Set<String> mappedClassNames = resolvedMappedClassNames(splits[1].trim(), classNames, classesMapping)
+                        switch (splits[0].trim()) {
+                            case StarkConstants.KEY_STARK_RULES_INCLUDE:
+                                includeClasses.addAll(mappedClassNames)
+                                break
+                            case StarkConstants.KEY_STARK_RULES_EXCLUDE:
+                                excludeClasses.addAll(mappedClassNames)
+                                break
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void collectAllClassNames(File outputJar, Set<String> outClassNames) {
+        JarFile jarFile = new JarFile(outputJar)
+        Enumeration<JarEntry> entries = jarFile.entries()
+        while (entries.hasMoreElements()) {
+            JarEntry entry = entries.nextElement()
+            if (entry.name.endsWith(SdkConstants.DOT_CLASS)) {
+                outClassNames.add(entry.name.substring(0, entry.name.length() - 6).replace("/", "."))
+            }
+        }
+    }
+
+    private Set<String> resolvedMappedClassNames(String packageName, Set<String> classNames, Map<String, String> classesMapping) {
+        Set<String> mappedClassNames = []
+        if (packageName != null && packageName != "") {
+            if (classesMapping.isEmpty()) {
+                for (String className : classNames) {
+                    if (className != null && className.startsWith(packageName)) {
+                        mappedClassNames.add(className)
+                    }
+                }
+            } else {
+                for (String className : classesMapping.keySet()) {
+                    if (className != null && className.startsWith(packageName)) {
+                        mappedClassNames.add(classesMapping.get(className))
+                    }
+                }
+            }
+        }
+        mappedClassNames
+    }
+
+    private void generateDefaultStarkRules() {
+        def defaultFile = new File(project.projectDir, StarkConstants.DEFAULT_STARK_RULES_FILE)
+        if (!defaultFile.exists()) {
+            defaultFile.createNewFile()
+            defaultFile.append("# Add project specific stark rules here.\n")
+            defaultFile.append("# include packages that need to be fixed in the future.\n")
+            defaultFile.append("# exclude packages that never to be fixed in the future.\n\n")
+//            defaultFile.append("${StarkConstants.KEY_STARK_RULES_INCLUDE}: ${StarkConstants.STARK_CORE_PACKAGE_NAME}.\n")
+            defaultFile.append("${StarkConstants.KEY_STARK_RULES_INCLUDE}: ${android.defaultConfig.applicationId}.\n\n")
+            defaultFile.append("${StarkConstants.KEY_STARK_RULES_EXCLUDE}: android.support.\n")
         }
     }
 
@@ -325,7 +426,6 @@ class TransformStarkTask extends SysTask<DefaultTask> {
     }
 
     /**
-     * @param invocation
      */
     void doPatch(File outputJar, URLClassLoader baseClassLoader) {
         def backupClassFile = starkScope.getBackupMonitorClassFile()
@@ -352,33 +452,49 @@ class TransformStarkTask extends SysTask<DefaultTask> {
             def entry = (JarEntry) jarEntries.nextElement()
             def entryName = entry.name
             if (entryName.endsWith(SdkConstants.DOT_CLASS)) {
-                def jarEntry = new JarEntry(PatchVisitor.VISITOR_BUILDER.getMangledRelativeClassFilePath(entryName))
                 def inputStream = jarFile.getInputStream(entry)
                 def classBytes = inputStream.bytes
 
                 ClassReader classReader = new ClassReader(classBytes)
                 String className = classReader.className.replace(File.separator, ".")
                 String classHash = HashUtil.sha256(classBytes).asHexString()
-                if (backupClassHashMap.get(className) == classHash) {
+                String backupClassHash = backupClassHashMap.get(className)
+                if (backupClassHash == classHash) {
+                    continue
+                }
+                if (!includeClasses.contains(className)) {
+                    Plog.q "Do patch does not include class: $className"
+                    continue
+                }
+                if (excludeClasses.contains(className)) {
+                    Plog.q "Do patch exclude class: $className"
                     continue
                 }
 
                 try {
-                    byte[] bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
-                            baseClassLoader, PatchVisitor.VISITOR_BUILDER)
-                    jarEntry.setMethod(entry.getMethod())
-                    jarEntry.setTime(entry.getTime())
-                    jarEntry.setComment(entry.getComment())
-                    jarEntry.setExtra(entry.getExtra())
-                    if (entry.getMethod() == ZipEntry.STORED) {
-                        jarEntry.setSize(entry.getSize())
-                        jarEntry.setCrc(entry.getCrc())
+                    byte[] bytes
+                    def jarEntry
+                    if (backupClassHash == null || backupClassHash == "") {
+                        bytes = classBytes
+                        jarEntry = new JarEntry(entryName)
+                    } else {
+                        jarEntry = new JarEntry(PatchVisitor.VISITOR_BUILDER.getMangledRelativeClassFilePath(entryName))
+                        bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
+                                baseClassLoader, PatchVisitor.VISITOR_BUILDER)
+                        jarEntry.setMethod(entry.getMethod())
+                        jarEntry.setTime(entry.getTime())
+                        jarEntry.setComment(entry.getComment())
+                        jarEntry.setExtra(entry.getExtra())
+                        if (entry.getMethod() == ZipEntry.STORED) {
+                            jarEntry.setSize(entry.getSize())
+                            jarEntry.setCrc(entry.getCrc())
+                        }
+                        generatedClassesBuilder.add(className)
                     }
                     if (bytes != null) {
                         jarOutputStream.putNextEntry(jarEntry)
                         jarOutputStream.write(bytes)
                         jarOutputStream.closeEntry()
-                        generatedClassesBuilder.add(className)
                     } else {
                         Plog.q "$className instrumentClass failed."
                     }
@@ -488,13 +604,26 @@ class TransformStarkTask extends SysTask<DefaultTask> {
             def bytes
             if (entryName.endsWith(SdkConstants.DOT_CLASS)) {
                 def classBytes = inputStream.bytes
-                writeClassHash(monitorClassFile, classBytes)
+                ClassReader classReader = new ClassReader(classBytes)
+                String className = classReader.className.replace(File.separator, ".")
 
-                try {
-                    bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
-                            baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
-                } catch (Exception e) {
-                    e.printStackTrace()
+                monitorClassFile.append(className)
+                monitorClassFile.append("->")
+                monitorClassFile.append(HashUtil.sha256(classBytes).asHexString())
+                monitorClassFile.append("\n")
+
+                boolean redirectSuper = SuperClassRedirection.checkNeedRedirect(classReader)
+                if (!redirectSuper && !includeClasses.contains(className)) {
+                    Plog.q "Do monitor does not include class: $className"
+                } else if (!redirectSuper && excludeClasses.contains(className)) {
+                    Plog.q "Do monitor exclude class: $className"
+                } else {
+                    try {
+                        bytes = MonitorVisitor.instrumentClass(entryName, classBytes,
+                                baseClassLoader, RedirectionVisitor.VISITOR_BUILDER)
+                    } catch (Exception e) {
+                        e.printStackTrace()
+                    }
                 }
                 if (bytes == null) {
                     bytes = classBytes
@@ -510,16 +639,6 @@ class TransformStarkTask extends SysTask<DefaultTask> {
         outputJar.delete()
         FileUtils.copyFile(monitorFileJar, outputJar)
         monitorFileJar.delete()
-    }
-
-    private void writeClassHash(File monitorClassFile, byte[] classBytes) {
-        ClassReader classReader = new ClassReader(classBytes)
-        String className = classReader.className.replace(File.separator, ".")
-        Plog.q "jar classReader = " + className
-        monitorClassFile.append(className)
-        monitorClassFile.append("->")
-        monitorClassFile.append(HashUtil.sha256(classBytes).asHexString())
-        monitorClassFile.append("\n")
     }
 
     /**

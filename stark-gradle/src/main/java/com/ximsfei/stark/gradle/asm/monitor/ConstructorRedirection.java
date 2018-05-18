@@ -256,18 +256,17 @@ public class ConstructorRedirection extends Redirection {
     // The signature of the dynamically dispatching 'this' constructor. The final parameters is
     // to disambiguate from other constructors that might preexist on the class.
     static final String DISPATCHING_THIS_SIGNATURE =
-            "([Ljava/lang/Object;"
-                    + MonitorVisitor.INSTANT_RELOAD_EXCEPTION.getDescriptor() + ")V";
+            "([Ljava/lang/Object;" + MonitorVisitor.STARK_RELOAD_EXCEPTION.getDescriptor() + ")V";
 
     private final Constructor constructor;
 
     /**
      * @param constructor the constructor to redirect.
-     * @param types the types of the arguments on the super()/this() call.
+     * @param types       the types of the arguments on the super()/this() call.
      */
     ConstructorRedirection(LabelNode label,
-            Constructor constructor,
-            @NonNull List<Type> types) {
+                           Constructor constructor,
+                           @NonNull List<Type> types) {
         super(label, types, Type.VOID_TYPE);
         this.constructor = constructor;
     }

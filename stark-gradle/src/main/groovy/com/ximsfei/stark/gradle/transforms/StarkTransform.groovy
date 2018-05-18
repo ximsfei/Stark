@@ -248,7 +248,7 @@ class StarkTransform extends Transform {
         Sets.immutableEnumSet(
                 QualifiedContent.Scope.PROJECT,
                 QualifiedContent.Scope.SUB_PROJECTS,
-                QualifiedContent.Scope.EXTERNAL_LIBRARIES);
+                QualifiedContent.Scope.EXTERNAL_LIBRARIES)
     }
 
     @Override

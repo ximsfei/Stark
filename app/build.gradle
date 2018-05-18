@@ -17,8 +17,9 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.ximsfei.stark'
 
 stark {
-    autoBackup = false
+    autoBackup = true
     patchVersion = 1
+//    starkFiles = ['stark-rules.txt']
 }
 
 android {

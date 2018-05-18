@@ -207,4 +207,5 @@ package com.ximsfei.stark.gradle
 class StarkExtension {
     boolean autoBackup = false
     int patchVersion
+    Set<String> starkFiles = []
 }
