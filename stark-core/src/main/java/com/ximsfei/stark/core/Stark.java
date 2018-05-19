@@ -207,8 +207,10 @@ package com.ximsfei.stark.core;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.res.Resources;
+import android.text.TextUtils;
 
 import com.ximsfei.stark.core.runtime.PatchLoader;
+import com.ximsfei.stark.core.runtime.StarkConfig;
 import com.ximsfei.stark.core.util.FileUtils;
 import com.ximsfei.stark.core.util.ZipUtils;
 
@@ -216,7 +218,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Enumeration;
+import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -226,7 +232,17 @@ import io.sigpipe.jbsdiff.ui.FileUI;
 
 public class Stark {
     private static final Stark sInstance = new Stark();
+    private static final String PATCH_PATH = "stark-patch.jar";
+    private static final String ARSC_FILE = "resources.arsc";
+    private static final String ARSC_JDIFF = "resources.arsc.jdiff";
+    private static final String ARSC_TMP = "resources.arsc.tmp";
+    private static final String STARK_PROPERTIES = "stark.properties";
+    private static final String KEY_STARK_PATCH_HASH = "stark.patch.hash";
+    private static final String KEY_STARK_PATCH_TIME = "stark.patch.time";
     private Resources mResources;
+    private boolean mPatchLoaded;
+    private Context mAppContext;
+    private ExecutorService mSingleExecutor = Executors.newSingleThreadExecutor();
 
     private Stark() {
     }
@@ -235,50 +251,53 @@ public class Stark {
         return sInstance;
     }
 
-    public boolean loadPatch(Context context, String path) {
-        DexClassLoader dexClassLoader = new DexClassLoader(path,
+    /**
+     * If the patch file exists. The load method will loads the patch.
+     *
+     * @param context
+     */
+    public void load(Context context) {
+        mAppContext = context.getApplicationContext() != null ? context.getApplicationContext() : context;
+        File patch = getPatchFile(context);
+        if (!patch.exists()) {
+            return;
+        }
+        if (!checkPatchValid(patch)) {
+            patch.delete();
+            return;
+        }
+        DexClassLoader dexClassLoader = new DexClassLoader(patch.getAbsolutePath(),
                 context.getCacheDir().getPath(), context.getCacheDir().getPath(),
                 getClass().getClassLoader());
         try {
             Class<?> aClass = Class.forName("com.ximsfei.stark.core.runtime.StarkPatchLoaderImpl",
                     true, dexClassLoader);
             PatchLoader patchLoader = (PatchLoader) aClass.newInstance();
-            boolean patchLoaded = patchLoader.load();
-            if (patchLoaded) {
-                return loadResources(context, path);
-            }
+            mPatchLoaded = patchLoader.load();
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return false;
     }
 
-    public boolean mergePatch(Context context, String path) {
-        return mergeResources(path, context.getApplicationInfo().sourceDir);
-    }
-
-    private boolean loadResources(Context context, String path) {
-        try {
-            ApplicationInfo info = context.getApplicationInfo();
-            info.sourceDir = path;
-            info.publicSourceDir = path;
-            mResources = context.getPackageManager().getResourcesForApplication(info);
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
+    /**
+     * @param context
+     * @param patchPath Patch's path in the file system.
+     * @return
+     */
+    public boolean applyPatch(Context context, String patchPath) {
+        File patchFile = new File(patchPath);
+        if (!checkPatchUpdated(context, patchFile)) {
+            patchFile.delete();
+            return false;
         }
-        return false;
-    }
-
-    private boolean mergeResources(String patchPath, String installedPath) {
-        File patchApkFile = new File(patchPath);
-        File mergedFile = new File(patchApkFile.getParent(), "merged.apk");
-        File installedFile = new File(installedPath);
-        if (!patchApkFile.exists() || !installedFile.exists()) {
+        File finalPatch = getPatchFile(context);
+        File mergedFile = new File(patchFile.getParent(), "merged.apk");
+        File installedFile = new File(context.getApplicationInfo().sourceDir);
+        if (!patchFile.exists() || !installedFile.exists()) {
             return false;
         }
         try {
-            ZipFile patchApk = new ZipFile(patchApkFile);
+            ZipFile patchApk = new ZipFile(patchFile);
             ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(mergedFile));
             ZipFile installedApk = new ZipFile(installedFile);
             Enumeration<? extends ZipEntry> entries = installedApk.entries();
@@ -288,23 +307,23 @@ public class Stark {
                 ZipEntry patchEntry = patchApk.getEntry(name);
                 if (patchEntry != null) {
                     ZipUtils.writeEntry(patchApk, zos, patchEntry);
-                } else if (name.equals("resources.arsc")) {
-                    ZipEntry jdiffEntry = patchApk.getEntry("resources.arsc.jdiff");
+                } else if (name.equals(ARSC_FILE)) {
+                    ZipEntry jdiffEntry = patchApk.getEntry(ARSC_JDIFF);
                     if (jdiffEntry != null) {
-                        File arsc = new File(mergedFile.getParent(), "resources.arsc");
+                        File arsc = new File(patchFile.getParent(), ARSC_FILE);
                         FileUtils.copyFile(installedApk.getInputStream(entry), arsc);
-                        File jdiff = new File(mergedFile.getParent(), "resources.arsc.jdiff");
+                        File jdiff = new File(patchFile.getParent(), ARSC_JDIFF);
                         FileUtils.copyFile(patchApk.getInputStream(jdiffEntry), jdiff);
-                        File newArsc = new File(mergedFile.getParent(), "resources.arsc.new");
+                        File arscTmp = new File(patchFile.getParent(), ARSC_TMP);
                         boolean merged = false;
                         try {
-                            FileUI.patch(arsc, newArsc, jdiff);
+                            FileUI.patch(arsc, arscTmp, jdiff);
                             ZipEntry ze2 = new ZipEntry(entry.getName());
                             ze2.setTime(entry.getTime());
                             ze2.setComment(entry.getComment());
                             ze2.setExtra(entry.getExtra());
                             zos.putNextEntry(ze2);
-                            FileInputStream is = new FileInputStream(newArsc);
+                            FileInputStream is = new FileInputStream(arscTmp);
                             byte[] bytes = new byte[is.available()];
                             is.read(bytes);
                             zos.write(bytes);
@@ -314,7 +333,7 @@ public class Stark {
                         }
                         arsc.delete();
                         jdiff.delete();
-                        newArsc.delete();
+                        arscTmp.delete();
                         if (!merged) {
                             ZipUtils.writeEntry(installedApk, zos, entry);
                         }
@@ -327,12 +346,17 @@ public class Stark {
                     ZipUtils.writeEntry(installedApk, zos, entry);
                 }
             }
+            ZipEntry entry = installedApk.getEntry(STARK_PROPERTIES);
+            if (entry != null) {
+                ZipUtils.writeEntry(installedApk, zos, entry);
+            }
             patchApk.close();
             installedApk.close();
             zos.flush();
             zos.close();
-            patchApkFile.delete();
-            mergedFile.renameTo(patchApkFile);
+            patchFile.delete();
+            finalPatch.delete();
+            mergedFile.renameTo(finalPatch);
             return true;
         } catch (IOException e) {
             e.printStackTrace();
@@ -340,7 +364,123 @@ public class Stark {
         return false;
     }
 
+    public void applyPatchAsync(Context context, String path) {
+        applyPatchAsync(context, path, true);
+    }
+
+    /**
+     * Apply patch asynchronous.
+     *
+     * @param context
+     * @param path      Patch's path in the file system.
+     * @param immediate If true. Take effect immediately after the patch is applied.
+     */
+    public void applyPatchAsync(final Context context, final String path, final boolean immediate) {
+        mSingleExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                boolean applied = applyPatch(context, path);
+                if (applied && immediate) {
+                    load(context);
+                }
+            }
+        });
+    }
+
     public Resources getResources() {
+        if (mResources != null) {
+            return mResources;
+        }
+        if (mPatchLoaded && mAppContext != null) {
+            loadResources(mAppContext);
+        }
         return mResources;
+    }
+
+    private boolean loadResources(Context context) {
+        try {
+            File patch = getPatchFile(context);
+            if (!patch.exists()) {
+                return false;
+            }
+            if (!checkPatchValid(patch)) {
+                patch.delete();
+                return false;
+            }
+            ApplicationInfo info = context.getApplicationInfo();
+            info.sourceDir = patch.getAbsolutePath();
+            info.publicSourceDir = patch.getAbsolutePath();
+            mResources = context.getPackageManager().getResourcesForApplication(info);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    private boolean checkPatchValid(File patch) {
+        try {
+            ZipFile zip = new ZipFile(patch);
+            ZipEntry entry = zip.getEntry(STARK_PROPERTIES);
+            if (entry != null) {
+                InputStream is = zip.getInputStream(entry);
+                Properties stark = new Properties();
+                stark.load(is);
+                is.close();
+                String hash = (String) stark.get(KEY_STARK_PATCH_HASH);
+                if (!TextUtils.isEmpty(hash) && hash.equals(StarkConfig.BUILD_HASH)) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    private boolean checkPatchUpdated(Context context, File patchFile) {
+        try {
+            ZipFile zip = new ZipFile(patchFile);
+            ZipEntry entry = zip.getEntry(STARK_PROPERTIES);
+            if (entry != null) {
+                InputStream is = zip.getInputStream(entry);
+                Properties stark = new Properties();
+                stark.load(is);
+                is.close();
+                String hash = (String) stark.get(KEY_STARK_PATCH_HASH);
+                if (TextUtils.isEmpty(hash) || hash.equals(StarkConfig.BUILD_HASH)) {
+                    return false;
+                }
+                long buildTime = Long.valueOf((String) stark.get(KEY_STARK_PATCH_TIME));
+                return buildTime > getPatchBuildTime(getPatchFile(context));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    private long getPatchBuildTime(File patch) {
+        if (!patch.exists()) {
+            return 0;
+        }
+        try {
+            ZipFile zip = new ZipFile(patch);
+            ZipEntry entry = zip.getEntry(STARK_PROPERTIES);
+            if (entry != null) {
+                InputStream is = zip.getInputStream(entry);
+                Properties stark = new Properties();
+                stark.load(is);
+                is.close();
+                return Long.valueOf((String) stark.get(KEY_STARK_PATCH_TIME));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    private File getPatchFile(Context context) {
+        return new File(context.getCacheDir(), PATCH_PATH);
     }
 }

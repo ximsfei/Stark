@@ -14,17 +14,17 @@
         android:textAllCaps="false" />
 
     <Button
-        android:id="@+id/merge"
+        android:id="@+id/apply"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="mergePatch"
+        android:text="applyPatch"
         android:textAllCaps="false" />
 
     <Button
-        android:id="@+id/load"
+        android:id="@+id/recreate"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="loadPatch"
+        android:text="recreate"
         android:textAllCaps="false" />
 
     <TextView

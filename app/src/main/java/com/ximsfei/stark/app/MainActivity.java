@@ -227,13 +227,12 @@ public class MainActivity extends Activity {
         findViewById(R.id.merge).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Stark.get().mergePatch(getApplication(), getPatchPath(MainActivity.this));
+                Stark.get().applyPatchAsync(getApplication(), getPatchPath(MainActivity.this));
             }
         });
-        findViewById(R.id.load).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.recreate).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Stark.get().loadPatch(getApplication(), getPatchPath(MainActivity.this));
                 recreate();
             }
         });
