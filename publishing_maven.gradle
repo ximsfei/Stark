@@ -1,0 +1,103 @@
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
+
+version = publishVersion
+group = "com.ximsfei"
+
+def siteUrl = 'https://github.com/ximsfei/Stark'
+def gitUrl = 'https://github.com/ximsfei/Stark.git'
+
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+
+bintray {
+    user = properties.getProperty("bintray.user")
+    key = properties.getProperty("bintray.apikey")
+
+    configurations = ['archives'] //When uploading configuration files
+    pkg {
+        repo = "ximsfei"
+        name = moduleName
+        desc = descContent
+        websiteUrl = siteUrl
+        issueTrackerUrl = 'https://github.com/ximsfei/Stark/issues'
+        vcsUrl = gitUrl
+        licenses = ['Apache-2.0']
+        labels = ['hot-fix', 'patch', 'gradle', 'android']
+        publicDownloadNumbers = true
+    }
+}
+
+install {
+    repositories.mavenInstaller {
+        pom {
+            project {
+                packaging 'aar'
+                name moduleName
+                url siteUrl
+                licenses {
+                    license {
+                        name 'Apache-2.0'
+                        url 'https://github.com/ximsfei/Stark/blob/master/LICENSE'
+                    }
+                }
+                developers {
+                    developer {
+                        id 'ximsfei'
+                        name 'pengfengwang'
+                        email 'ximsfei@gmail.com'
+                    }
+                }
+                scm {
+                    connection 'https://github.com/ximsfei/Stark.git'
+                    developerConnection 'https://github.com/ximsfei/Stark.git'
+                    url siteUrl
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+}
+
+if (project.hasProperty("android")) {
+    task javadocs(type: Javadoc) {
+        source = android.sourceSets.main.java.srcDirs
+    }
+
+    task javadocsJar(type: Jar) {
+        classifier = 'javadoc'
+        from javadocs.destinationDir
+    }
+
+    task sourcesJar(type: Jar) {
+        classifier = 'sources'
+        from android.sourceSets.main.java.srcDirs
+    }
+
+    artifacts {
+        archives javadocsJar
+        archives sourcesJar
+    }
+} else {
+    task javadocs(type: Javadoc) {
+        source = sourceSets.main.java.srcDirs
+    }
+
+    task javadocsJar(type: Jar) {
+        classifier = 'javadoc'
+        from javadocs.destinationDir
+    }
+
+    task sourcesJar(type: Jar) {
+        classifier = 'sources'
+        from sourceSets.main.java.srcDirs
+    }
+
+    artifacts {
+        archives javadocsJar
+        archives sourcesJar
+    }
+}

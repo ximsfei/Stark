@@ -9,7 +9,7 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     compileOnly gradleApi()
     compileOnly 'com.android.tools.build:gradle:3.1.2'
-    implementation 'io.sigpipe:jbsdiff:1.0'
+    implementation 'io.sigpipe:jbsdiff:' + rootProject.jbsdiffVersion
 //    implementation 'org.ow2.asm:asm:6.1.1'
 //    implementation 'org.ow2.asm:asm-analysis:6.1.1'
 //    implementation 'org.ow2.asm:asm-commons:6.1.1'
@@ -17,16 +17,22 @@ dependencies {
 //    implementation 'org.ow2.asm:asm-util:6.1.1'
 }
 
-apply plugin: 'maven'
+ext {
+    publishVersion = rootProject.starkVersion
+    moduleName = 'stark-gradle'
+    descContent = 'Stark Gradle Plugin'
+}
+
+apply from: '../publishing_maven.gradle'
 
 uploadArchives {
     repositories {
         mavenDeployer {
             repository(url: "file:///Users/ximsfei/local/repo")
             pom.project {
-                groupId "com.ximsfei.stark"
-                artifactId "gradle"
-                version "1.0.0"
+                groupId "com.ximsfei"
+                artifactId "stark-gradle"
+                version rootProject.starkVersion
             }
 
         }

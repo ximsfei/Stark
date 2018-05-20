@@ -1,11 +1,11 @@
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 27
+    compileSdkVersion rootProject.compileSdkVersion
 
     defaultConfig {
-        minSdkVersion 14
-        targetSdkVersion 27
+        minSdkVersion rootProject.minSdkVersion
+        targetSdkVersion rootProject.targetSdkVersion
         versionCode 1
         versionName "1.0"
     }
@@ -21,21 +21,26 @@ android {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'io.sigpipe:jbsdiff:1.0'
+    implementation 'io.sigpipe:jbsdiff:' + rootProject.jbsdiffVersion
 }
 
-apply plugin: 'maven'
+ext {
+    publishVersion = rootProject.starkVersion
+    moduleName = 'stark-core'
+    descContent = 'Stark 运行时核心库'
+}
+
+apply from: '../publishing_maven.gradle'
 
 uploadArchives {
     repositories {
         mavenDeployer {
             repository(url: "file:///Users/ximsfei/local/repo")
             pom.project {
-                groupId "com.ximsfei.stark"
-                artifactId "core"
-                version "1.0.0"
+                groupId "com.ximsfei"
+                artifactId "stark-core"
+                version rootProject.starkVersion
             }
-
         }
     }
 }

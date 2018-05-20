@@ -7,7 +7,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.ximsfei.stark:gradle:1.0.0'
+        classpath 'com.ximsfei:stark-gradle:0.0.1'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -18,14 +18,14 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.ximsfei.stark'
 
 android {
-    compileSdkVersion 27
+    compileSdkVersion rootProject.compileSdkVersion
+
     defaultConfig {
         applicationId "com.ximsfei.stark.app"
-        minSdkVersion 14
-        targetSdkVersion 27
+        minSdkVersion rootProject.minSdkVersion
+        targetSdkVersion rootProject.targetSdkVersion
         versionCode 1
         versionName "1.0"
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         release {
