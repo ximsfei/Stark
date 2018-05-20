@@ -261,7 +261,7 @@ public class RedirectionVisitor extends MonitorVisitor {
 
 
     /**
-     * Ensures that the class contains a $change field used for referencing the IncrementalChange
+     * Ensures that the class contains a $starkChange field used for referencing the IncrementalChange
      * dispatcher.
      * <p>
      * <p>Also updates package_private visibility to public so we can call into this class from
@@ -284,17 +284,17 @@ public class RedirectionVisitor extends MonitorVisitor {
                         | Opcodes.ACC_VOLATILE
                         | Opcodes.ACC_SYNTHETIC
                         | Opcodes.ACC_TRANSIENT;
-        // when dealing with interfaces, the $change field is an AtomicReference to the CHANGE_TYPE
+        // when dealing with interfaces, the $starkChange field is an AtomicReference to the CHANGE_TYPE
         // since fields in interface must be final. For classes, it's the CHANGE_TYPE directly.
         if (isInterface) {
             super.visitField(
                     fieldAccess,
-                    "$change",
+                    "$starkChange",
                     getRuntimeTypeName(Type.getType(AtomicReference.class)),
                     null,
                     null);
         } else {
-            super.visitField(fieldAccess, "$change", getRuntimeTypeName(CHANGE_TYPE), null, null);
+            super.visitField(fieldAccess, "$starkChange", getRuntimeTypeName(CHANGE_TYPE), null, null);
         }
         access = transformClassAccessForStark(access);
         super.visit(version, access, name, signature, superName, interfaces);
@@ -473,12 +473,12 @@ public class RedirectionVisitor extends MonitorVisitor {
         }
 
         /**
-         * inserts a new local '$change' in each method that contains a reference to the type's
+         * inserts a new local '$starkChange' in each method that contains a reference to the type's
          * IncrementalChange dispatcher, this is done to avoid threading issues.
          * <p>
          * Pseudo code:
          * <code>
-         * $package/IncrementalChange $local1 = $className$.$change;
+         * $package/IncrementalChange $local1 = $className$.$starkChange;
          * </code>
          */
         @Override
@@ -554,7 +554,7 @@ public class RedirectionVisitor extends MonitorVisitor {
             visitFieldInsn(
                     Opcodes.GETSTATIC,
                     visitedClassName,
-                    "$change",
+                    "$starkChange",
                     getRuntimeTypeName(CHANGE_TYPE));
         }
     }
@@ -570,7 +570,7 @@ public class RedirectionVisitor extends MonitorVisitor {
             visitFieldInsn(
                     Opcodes.GETSTATIC,
                     visitedClassName,
-                    "$change",
+                    "$starkChange",
                     getRuntimeTypeName(Type.getType(AtomicReference.class)));
             mv.visitMethodInsn(
                     Opcodes.INVOKEVIRTUAL,
@@ -871,7 +871,7 @@ public class RedirectionVisitor extends MonitorVisitor {
         mv.visitFieldInsn(
                 Opcodes.PUTSTATIC,
                 visitedClassName,
-                "$change",
+                "$starkChange",
                 "Ljava/util/concurrent/atomic/AtomicReference;");
     }
 

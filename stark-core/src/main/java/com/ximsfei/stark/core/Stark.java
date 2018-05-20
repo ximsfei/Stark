@@ -217,7 +217,6 @@ import com.ximsfei.stark.core.util.ZipUtils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Enumeration;
 import java.util.Properties;
@@ -346,19 +345,18 @@ public class Stark {
                     ZipUtils.writeEntry(installedApk, zos, entry);
                 }
             }
-            ZipEntry entry = installedApk.getEntry(STARK_PROPERTIES);
-            if (entry != null) {
-                ZipUtils.writeEntry(installedApk, zos, entry);
-            }
+            ZipEntry entry = patchApk.getEntry(STARK_PROPERTIES);
+            ZipUtils.writeEntry(patchApk, zos, entry);
             patchApk.close();
             installedApk.close();
             zos.flush();
             zos.close();
             patchFile.delete();
             finalPatch.delete();
-            mergedFile.renameTo(finalPatch);
+            FileUtils.copyFile(mergedFile, finalPatch);
+            mergedFile.delete();
             return true;
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return false;
@@ -432,7 +430,7 @@ public class Stark {
                     return true;
                 }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return false;
@@ -448,13 +446,12 @@ public class Stark {
                 stark.load(is);
                 is.close();
                 String hash = (String) stark.get(KEY_STARK_PATCH_HASH);
-                if (TextUtils.isEmpty(hash) || hash.equals(StarkConfig.BUILD_HASH)) {
-                    return false;
+                if (!TextUtils.isEmpty(hash) && hash.equals(StarkConfig.BUILD_HASH)) {
+                    long buildTime = Long.valueOf((String) stark.get(KEY_STARK_PATCH_TIME));
+                    return buildTime > getPatchBuildTime(getPatchFile(context));
                 }
-                long buildTime = Long.valueOf((String) stark.get(KEY_STARK_PATCH_TIME));
-                return buildTime > getPatchBuildTime(getPatchFile(context));
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return false;
@@ -474,7 +471,7 @@ public class Stark {
                 is.close();
                 return Long.valueOf((String) stark.get(KEY_STARK_PATCH_TIME));
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return 0;

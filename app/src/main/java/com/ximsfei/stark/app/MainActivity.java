@@ -224,7 +224,7 @@ public class MainActivity extends Activity {
                 startActivity(intent);
             }
         });
-        findViewById(R.id.merge).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.apply).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Stark.get().applyPatchAsync(getApplication(), getPatchPath(MainActivity.this));

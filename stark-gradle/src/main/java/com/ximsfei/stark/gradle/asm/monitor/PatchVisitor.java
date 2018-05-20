@@ -237,7 +237,7 @@ public class PatchVisitor extends MonitorVisitor {
         @NonNull
         @Override
         public String getMangledRelativeClassFilePath(@NonNull String path) {
-            // Remove .class (length 6) and replace with $override.class
+            // Remove .class (length 6) and replace with $starkoverride.class
             return path.substring(0, path.length() - 6) + OVERRIDE_SUFFIX + ".class";
         }
     }
@@ -246,7 +246,7 @@ public class PatchVisitor extends MonitorVisitor {
     public static final MonitorVisitor.VisitorBuilder VISITOR_BUILDER = new VisitorBuilder();
 
 
-    public static final String OVERRIDE_SUFFIX = "$override";
+    public static final String OVERRIDE_SUFFIX = "$starkoverride";
 
     private static final String METHOD_MANGLE_PREFIX = "static$";
 
@@ -271,7 +271,7 @@ public class PatchVisitor extends MonitorVisitor {
     /**
      * Turns this class into an override class that can be loaded by our custom class loader:
      *<ul>
-     *   <li>Make the class name be OriginalName$override</li>
+     *   <li>Make the class name be OriginalName$starkoverride</li>
      *   <li>Ensure the class derives from java.lang.Object, no other inheritance</li>
      *   <li>Ensure the class has a public parameterless constructor that is a noop.</li>
      *</ul>
@@ -303,7 +303,7 @@ public class PatchVisitor extends MonitorVisitor {
         mv.visitEnd();
 
         super.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC | Opcodes.ACC_STATIC,
-                "$obsolete", "Z", null, null);
+                "$starkObsolete", "Z", null, null);
     }
 
     @Override
@@ -433,7 +433,7 @@ public class PatchVisitor extends MonitorVisitor {
     @Override
     public FieldVisitor visitField(int access, String name, String desc, String signature,
                                    Object value) {
-        // do not add any of the original class fields in the $override class, they would never
+        // do not add any of the original class fields in the $starkoverride class, they would never
         // be used and confuse the debugger.
         return null;
     }
@@ -477,7 +477,7 @@ public class PatchVisitor extends MonitorVisitor {
 //                }
                 // we are accessing another object field, and at this point the visitor is not smart
                 // enough to know if has seen this class before or not so we must assume the field
-                // is *not* accessible from the $override class which lives in a different
+                // is *not* accessible from the $starkoverride class which lives in a different
                 // hierarchy and package.
                 // However, since we made all package-private and protected fields public, and it
                 // cannot be private since the visitedClassName is not the "owner", we can safely
@@ -609,7 +609,7 @@ public class PatchVisitor extends MonitorVisitor {
                 return true;
             }
             // if this is a public field, no need to change anything we can access it from the
-            // $override class.
+            // $starkoverride class.
             return false;
         }
 
@@ -780,8 +780,8 @@ public class PatchVisitor extends MonitorVisitor {
             //                Type.getType("(Ljava/lang/Integer;)Ljava/lang/Integer;")});
 
             // In InstantRun the second parameter to the bootstrap method cannot be the original
-            // lambda anymore but should be the updated in the $override class. So basically, we
-            // just need to swap the owner for the lambda invocation to the $override version.
+            // lambda anymore but should be the updated in the $starkoverride class. So basically, we
+            // just need to swap the owner for the lambda invocation to the $starkoverride version.
 
             // when the lambda is capturing "this", it is implemented as an instance function and
             // and INVOKE_SPECIAL will be used in place of the INVOKE_STATIC. However during
@@ -796,7 +796,7 @@ public class PatchVisitor extends MonitorVisitor {
         }
 
         /**
-         * Rewrites a method handle owner to this $override class and optionally change the method
+         * Rewrites a method handle owner to this $starkoverride class and optionally change the method
          * lookup in case the lambda function was an instance method.
          *
          * @param handle the method handle to rewrite
@@ -844,7 +844,7 @@ public class PatchVisitor extends MonitorVisitor {
          *   <li>calls to constructors are handled specially (see below)
          *   <li>calls to super methods are rewritten to call the 'access$super' trampoline we
          *       injected into the original code
-         *   <li>calls to methods in this class are rewritten to call the matching $override class
+         *   <li>calls to methods in this class are rewritten to call the matching $starkoverride class
          *       static method
          * </ul>
          */
@@ -857,9 +857,9 @@ public class PatchVisitor extends MonitorVisitor {
                     System.out.println(
                             "Private Method : " + name + ":" + desc + ":" + itf + ":" + isStatic);
 //                }
-                // private method dispatch, just invoke the $override class static method.
+                // private method dispatch, just invoke the $starkoverride class static method.
                 String newDesc = computeOverrideMethodDesc(desc, false /*isStatic*/);
-                super.visitMethodInsn(Opcodes.INVOKESTATIC, owner + "$override", name, newDesc, itf);
+                super.visitMethodInsn(Opcodes.INVOKESTATIC, owner + "$starkoverride", name, newDesc, itf);
                 return true;
             } else {
 //                if (DEBUG) {
@@ -1300,7 +1300,7 @@ public class PatchVisitor extends MonitorVisitor {
                     ByteCodeUtils.unbox(mv, t);
                     argc++;
                 }
-                mv.visitMethodInsn(Opcodes.INVOKESTATIC, visitedClassName + "$override",
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC, visitedClassName + "$starkoverride",
                         isStatic ? computeOverrideMethodName(name, methodNode.desc) : name,
                         newDesc, false);
                 Type ret = Type.getReturnType(methodNode.desc);

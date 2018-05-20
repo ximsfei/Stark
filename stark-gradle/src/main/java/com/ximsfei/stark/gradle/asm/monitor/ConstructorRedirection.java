@@ -232,7 +232,7 @@ import java.util.List;
  * <pre>{@code
  *   <init>(int x) {
  *     int a = 2; // Prelude remains unchanged.
- *     Change change = $change; // Move to a variable to avoid multithreading issues.
+ *     Change change = $starkChange; // Move to a variable to avoid multithreading issues.
  *     if (change != null) {
  *       Object[] arguments = new Object[3];
  *       arguments[0] = NULL; // The "this" reference. NULL in init$args.

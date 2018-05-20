@@ -212,11 +212,6 @@ import java.util.NoSuchElementException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * Generic Instant Run services. must not depend on Android APIs.
- * <p>
- * TODO: transform this static methods into interface/implementation.
- */
 @SuppressWarnings("unused")
 public class StarkRuntime {
 

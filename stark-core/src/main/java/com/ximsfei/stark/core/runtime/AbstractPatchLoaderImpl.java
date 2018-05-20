@@ -226,11 +226,11 @@ public abstract class AbstractPatchLoaderImpl implements PatchLoader {
         for (String className : getPatchedClasses()) {
             try {
                 ClassLoader cl = getClass().getClassLoader();
-                Class<?> aClass = cl.loadClass(className + "$override");
+                Class<?> aClass = cl.loadClass(className + "$starkoverride");
                 Object o = aClass.newInstance();
 
                 Class<?> originalClass = cl.loadClass(className);
-                Field changeField = originalClass.getDeclaredField("$change");
+                Field changeField = originalClass.getDeclaredField("$starkChange");
                 // force the field accessibility as the class might not be "visible"
                 // from this package.
                 changeField.setAccessible(true);
@@ -242,7 +242,7 @@ public abstract class AbstractPatchLoaderImpl implements PatchLoader {
 
                 // If there was a previous change set, mark it as obsolete:
                 if (previous != null) {
-                    Field isObsolete = previous.getClass().getDeclaredField("$obsolete");
+                    Field isObsolete = previous.getClass().getDeclaredField("$starkObsolete");
                     if (isObsolete != null) {
                         isObsolete.set(null, true);
                     }
@@ -265,11 +265,11 @@ public abstract class AbstractPatchLoaderImpl implements PatchLoader {
     }
 
     /**
-     * When dealing with interfaces, the $change field is a final {@link
+     * When dealing with interfaces, the $starkChange field is a final {@link
      * AtomicReference} instance which contains the current patch class
      * or null if it was never patched.
      *
-     * @param changeField the $change field.
+     * @param changeField the $starkChange field.
      * @param patch       the patch class instance.
      * @return the previous patch instance.
      */
@@ -283,10 +283,10 @@ public abstract class AbstractPatchLoaderImpl implements PatchLoader {
     }
 
     /**
-     * When dealing with classes, the $change field is the patched class instance or null if it was
+     * When dealing with classes, the $starkChange field is the patched class instance or null if it was
      * never patched.
      *
-     * @param changeField the $change field.
+     * @param changeField the $starkChange field.
      * @param patch       the patch class instance.
      * @return the previous patch instance.
      */
