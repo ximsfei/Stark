@@ -1,1 +1,1 @@
-include ':app', ':stark-gradle', ':stark-core'
+include ':stark-sample', ':stark-gradle', ':stark-core'
