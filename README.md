@@ -3,7 +3,7 @@
 [![release](https://img.shields.io/badge/release-0.0.1-green.svg)](http://jcenter.bintray.com/com/ximsfei/stark)
 ![build](https://img.shields.io/badge/build-passing-green.svg)
 ![pr](https://img.shields.io/badge/PRs-welcome-blue.svg)
-[![license](https://img.shields.io/badge/apache-2.0-blue.svg)](#license)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](#license)
 
 Stark is a hot-fix framework for Android. It supports swapping new implementations of classes without restarting a running Android application, and updated Android resources (icons, layout, etc) while only restarting the Android Activity.
 
