@@ -2,7 +2,7 @@ buildscript {
 
     repositories {
         maven {
-            url "file:///Users/ximsfei/local/repo"
+            url "file://" + rootProject.projectDir.absolutePath + "/repo"
         }
         jcenter()
     }

@@ -1,2 +1,2 @@
 #!/bin/bash
-./gradlew :app:clean :app:starkGeneratePatchDebug -q --stacktrace
+./gradlew :stark-sample:clean :stark-sample:starkGeneratePatchDebug -q --stacktrace
