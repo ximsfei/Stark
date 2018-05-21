@@ -1,9 +1,9 @@
 buildscript {
 
     repositories {
-        maven {
-            url "file://" + rootProject.projectDir.absolutePath + "/repo"
-        }
+//        maven {
+//            url "file://" + rootProject.projectDir.absolutePath + "/repo"
+//        }
         jcenter()
     }
     dependencies {
@@ -41,5 +41,6 @@ android {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation project(':stark-core')
+//    implementation project(':stark-core')
+    implementation 'com.ximsfei:stark-core:0.0.1'
 }
