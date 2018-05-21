@@ -1,16 +1,17 @@
 # Stark
 
-[![release](https://img.shields.io/badge/release-none-redn.svg)](http://jcenter.bintray.com/com/ximsfei/stark)
-![build](https://img.shields.io/badge/build-failed-red.svg)
-[![license](https://img.shields.io/badge/apache-2.0-blue.svg)](#[license](license))
+[![release](https://img.shields.io/badge/release-0.0.1-green.svg)](http://jcenter.bintray.com/com/ximsfei/stark)
+![build](https://img.shields.io/badge/build-passing-green.svg)
+![pr](https://img.shields.io/badge/PRs-welcome-blue.svg)
+[![license](https://img.shields.io/badge/apache-2.0-blue.svg)](#license)
 
 Stark is a hot-fix framework for Android. It supports swapping new implementations of classes without restarting a running Android application, and updated Android resources (icons, layout, etc) while only restarting the Android Activity.
 
 ## Getting Started
 
-~~The Gradle Dependency is available via [jCenter](https://bintray.com/pengfeng/ximsfei/stark),~~
+The Gradle Dependency is available via [jCenter](https://bintray.com/pengfeng/ximsfei),
 
-Firstly add dependency directly in your root project's build.gradle:
+Firstly, add dependency directly in your root project's build.gradle:
 
 ```gradle
 buildscript {
@@ -18,19 +19,19 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.ximsfei.stark:gradle:none'
+        classpath 'com.ximsfei:stark-gradle:0.0.1'
     }
 }
 ```
 
-Secondly apply `com.ximsfei.stark` plugin and add stark core dependencies in your Android application project's build.gradle:
+Secondly, apply `com.ximsfei.stark` plugin and add stark core dependencies in your Android application project's build.gradle:
 
 ```gradle
 apply plugin: 'com.android.application'
 apply plugin: 'com.ximsfei.stark'
 
 dependencies {
-    implementation 'com.ximsfei.stark:core:none'
+    implementation 'com.ximsfei:stark-core:0.0.1'
 }
 ```
 
@@ -116,7 +117,7 @@ multiDexEnabled=false
 
 ## Thinks
 
-Thanks to Instant Run, tinker, robust and small.
+Thanks to InstantRun, Tinker, Small, jbsdiff and Robust.
 
 ## About Author
 
