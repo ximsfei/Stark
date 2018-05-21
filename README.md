@@ -1,4 +1,4 @@
-# Stark
+![logo](logo.png)
 
 [![release](https://img.shields.io/badge/release-0.0.1-green.svg)](http://jcenter.bintray.com/com/ximsfei/stark)
 ![build](https://img.shields.io/badge/build-passing-green.svg)
