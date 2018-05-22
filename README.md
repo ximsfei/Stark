@@ -83,17 +83,17 @@ Also, the stark plugin will generate two configuration files in your Android app
 > stark.properties
 
 ```properties
-# If autoBackup configuration is true.
+# If autoBackup is true.
 # Stark plugin will automatically backup the files needed to generate the patch.
 # Otherwise, you need to run the stark backup task manually.
 autoBackup=false
 
-# If allStark configuration is true.
+# If allStark is true.
 # Stark plugin will inject redirection code into all BuildType(debug/release).
 # You'd better disable this configuration at the development stage.
 allStark=false
 
-# If releaseStark configuration is true.
+# If releaseStark is true.
 # Stark plugin will inject redirection code into release stage.
 releaseStark=true
 
