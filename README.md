@@ -1,6 +1,6 @@
 ![logo](logo.png)
 
-[![release](https://img.shields.io/badge/release-0.0.1-green.svg)](http://jcenter.bintray.com/com/ximsfei/stark)
+[![release](https://img.shields.io/badge/release-0.0.2-green.svg)](http://jcenter.bintray.com/com/ximsfei/stark)
 ![build](https://img.shields.io/badge/build-passing-green.svg)
 ![pr](https://img.shields.io/badge/PRs-welcome-blue.svg)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](#license)
