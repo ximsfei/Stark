@@ -217,8 +217,8 @@ public class SecondActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_second);
         TextView content = findViewById(R.id.content);
-        content.setText("代码存在问题，尚未修复");
-//        content.setText("哈哈，代码已经被修复啦");
+        content.setText("Code bug");
+//        content.setText("aha, Code Bug Fix");
 //        Toast.makeText(this, "fixed", Toast.LENGTH_SHORT).show();
         Log.e("SecondActivity", "content text = " + content.getText());
     }

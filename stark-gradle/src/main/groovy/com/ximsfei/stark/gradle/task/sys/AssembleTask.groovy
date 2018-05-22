@@ -248,6 +248,10 @@ class AssembleTask extends SysTask<DefaultTask> {
 
             doPatch(apkFile, unzipApkDir, unzipBackupApkDir)
 
+            File patchFile = new File(apkFile.absolutePath.replace(".apk", ".patch"))
+            FileUtils.copyFile(apkFile, patchFile)
+            FileUtils.deleteQuietly(apkFile)
+
             FileUtils.deleteDirectory(unzipApkDir)
             FileUtils.deleteDirectory(unzipBackupApkDir)
             return

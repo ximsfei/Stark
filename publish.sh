@@ -1,4 +1,4 @@
 #!/bin/bash
-./gradlew :stark-gradle:uploadArchives
-./gradlew :stark-sample:clean :stark-sample:assembleDebug -q --stacktrace
+./gradlew clean :stark-core:assembleRelease :stark-core:uploadArchives :stark-gradle:uploadArchives
+./gradlew :stark-sample:assembleDebug -q --stacktrace
 #./gradlew :app:starkBackupDebug

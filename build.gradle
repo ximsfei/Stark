@@ -34,5 +34,5 @@ ext {
 
     jbsdiffVersion = "1.0"
 
-    starkVersion = "0.0.1"
+    starkVersion = "0.0.2"
 }

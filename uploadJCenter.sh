@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./gradlew clean stark-gradle:bintrayUpload stark-core:bintrayUpload
+./gradlew clean stark-core:assembleRelease stark-core:bintrayUpload stark-gradle:bintrayUpload

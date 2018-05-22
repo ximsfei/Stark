@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">Stark</string>
-    <string name="fix_text">资源存在问题，尚未修复</string>
-    <!--<string name="fix_text">哈哈，当你看到我的时候，资源已经被修复啦</string>-->
+    <string name="fix_text">Resources bug</string>
+    <!--<string name="fix_text">Aha, Resources Bug Fix</string>-->
 </resources>

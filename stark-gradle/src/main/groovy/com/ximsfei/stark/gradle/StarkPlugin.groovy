@@ -240,17 +240,17 @@ class StarkPlugin implements Plugin<Project> {
             TaskManager taskManager = new TaskManager(project, android, stark)
             taskManager.configTasks()
 
-            project.gradle.addListener(new TaskExecutionListener() {
-                @Override
-                void beforeExecute(Task task) {
-                    Plog.q "task $task.name"
-                }
-
-                @Override
-                void afterExecute(Task task, TaskState taskState) {
-
-                }
-            })
+//            project.gradle.addListener(new TaskExecutionListener() {
+//                @Override
+//                void beforeExecute(Task task) {
+//                    Plog.q "task $task.name"
+//                }
+//
+//                @Override
+//                void afterExecute(Task task, TaskState taskState) {
+//
+//                }
+//            })
         }
     }
 
