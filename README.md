@@ -19,7 +19,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.ximsfei:stark-gradle:0.0.1'
+        classpath 'com.ximsfei:stark-gradle:0.0.2'
     }
 }
 ```
@@ -31,9 +31,12 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.ximsfei.stark'
 
 dependencies {
-    implementation 'com.ximsfei:stark-core:0.0.1'
+    implementation 'com.ximsfei:stark-core:0.0.2'
+    implementation 'io.sigpipe:jbsdiff:1.0'
 }
 ```
+
+*Note: Stark depends on jbsdiff, you need add jbsdiff dependency in your build.gradle*
 
 Initialize stark framework in application's `attachBaseContext`:
 
