@@ -113,7 +113,7 @@ multiDexEnabled=false
 
 ## More
 
-* Read the [wiki](https://github.com/ximsfei/Stark/wiki)
+* Read the [Chinese wiki](https://github.com/ximsfei/Stark/wiki)
 
 ## Thinks
 
