@@ -31,4 +31,4 @@
 -keep public class * extends android.app.Application
 -keep public class * extends android.app.Service
 
--keep class com.ximsfei.stark.core.runtime.** {*;}
+-keep class com.ximsfei.stark.core.runtime.** {public *;}
