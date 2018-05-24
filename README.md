@@ -7,6 +7,49 @@
 
 Stark is a hot-fix framework for Android. It supports swapping new implementations of classes without restarting a running Android application, and updated Android resources (icons, layout, etc) while only restarting the Android Activity.
 
+## Sample Usage
+
+1. git clone https://github.com/ximsfei/Stark.git
+2. cd Stark
+3. ./gradlew :stark-sample:clean :stark-sample:assembleDebug
+4. adb install -r stark-sample/build/outputs/apk/debug/stark-sample-debug.apk
+5. Launch sample APK.
+6. Fix code and resources.
+
+Fix Code
+
+> SecondActivity.java
+
+```java
+public class SecondActivity extends Activity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        content.setText("Code bug");
+//        content.setText("aha, Code Bug Fix");
+//        Toast.makeText(this, "fixed", Toast.LENGTH_SHORT).show();
+    }
+}
+```
+
+Fix Resources
+
+> strings.xml
+
+```xml
+    <string name="fix_text">Resources bug</string>
+    <!--<string name="fix_text">Aha, Resources Bug Fix</string>-->
+```
+
+Change the `TextView` in activity_main.xml and activity_second.xml to Button.
+
+7. ./gradlew :stark-sample:clean :stark-sample:starkGeneratePatchDebug
+8. adb push stark-sample/build/outputs/apk/debug/stark-sample-debug.patch /sdcard/Android/data/com.ximsfei.stark.app/fix.apk
+9. Launch sample APK.
+10. Click the Button of applyPatch.
+11. Click the Button of recreate.
+12. Observe whether the code and resources are fixed.
+
 ## Getting Started
 
 The Gradle Dependency is available via [jCenter](https://bintray.com/pengfeng/ximsfei),
