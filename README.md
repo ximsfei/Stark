@@ -118,7 +118,13 @@ Even you can enable an automatic backup configuration in the [stark.properties](
 When you find a bug in an online apk, you can fix the code and run the `starkGeneratePatch + BuildType` task to generate hot-fix patch.
 
 The `starkGeneratePatch + BuildType` task relies on files backed up by the `starkBackup + BuildType` task.
- 
+
+## ProGuard
+
+```pro
+-keep class com.ximsfei.stark.core.runtime.** {public *;}
+```
+
 ## Configuration files
 
 Also, the stark plugin will generate two configuration files in your Android application project dir:
