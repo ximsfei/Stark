@@ -163,6 +163,10 @@ multiDexEnabled=false
 -exclude: android.support.
 ```
 
+## Contributing
+
+For more information about contributing, see our [contributing guide](CONTRIBUTING.md).
+
 ## More
 
 * Read the [Chinese wiki](https://github.com/ximsfei/Stark/wiki)
