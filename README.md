@@ -1,6 +1,6 @@
 ![logo](logo.png)
 
-[![release](https://img.shields.io/badge/release-0.0.2-green.svg)](http://jcenter.bintray.com/com/ximsfei/stark)
+[![release](https://img.shields.io/badge/release-0.0.3-green.svg)](http://jcenter.bintray.com/com/ximsfei/stark)
 ![build](https://img.shields.io/badge/build-passing-green.svg)
 ![pr](https://img.shields.io/badge/PRs-welcome-blue.svg)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](#license)
@@ -62,7 +62,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.ximsfei:stark-gradle:0.0.2'
+        classpath 'com.ximsfei:stark-gradle:0.0.3'
     }
 }
 ```
@@ -74,7 +74,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'com.ximsfei.stark'
 
 dependencies {
-    implementation 'com.ximsfei:stark-core:0.0.2'
+    implementation 'com.ximsfei:stark-core:0.0.3'
     implementation 'io.sigpipe:jbsdiff:1.0'
 }
 ```
