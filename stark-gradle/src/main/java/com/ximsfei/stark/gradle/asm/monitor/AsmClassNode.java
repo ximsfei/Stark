@@ -349,4 +349,19 @@ public class AsmClassNode extends AsmAbstractNode {
     public List<AsmInterfaceNode> getInterfaces() {
         return implementedInterfaces;
     }
+
+    /**
+     * Returns true if the classNode is interface.
+     */
+    public boolean isInterface(@NonNull ClassNode classNode) {
+        for (AsmInterfaceNode implementedInterface : implementedInterfaces) {
+            if (implementedInterface.isInterface(classNode)) {
+                return true;
+            }
+        }
+        if (parent != null) {
+            return parent.isInterface(classNode);
+        }
+        return false;
+    }
 }

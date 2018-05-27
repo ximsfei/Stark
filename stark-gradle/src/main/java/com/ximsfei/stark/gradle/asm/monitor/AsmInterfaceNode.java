@@ -264,4 +264,19 @@ class AsmInterfaceNode extends AsmAbstractNode {
     Iterable<AsmInterfaceNode> getSuperInterfaces() {
         return superInterfaces;
     }
+
+    /**
+     * Returns true if the classNode is interface.
+     */
+    boolean isInterface(@NonNull ClassNode classNode) {
+        if (classNode.name.equals(getClassNode().name)) {
+            return true;
+        }
+        for (AsmInterfaceNode extendedInterface : superInterfaces) {
+            if (extendedInterface.isInterface(classNode)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

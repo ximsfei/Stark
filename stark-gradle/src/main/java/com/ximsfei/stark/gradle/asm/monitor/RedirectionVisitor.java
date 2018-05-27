@@ -946,7 +946,9 @@ public class RedirectionVisitor extends MonitorVisitor {
 //                methodReference.owner.name, methodReference.owner.access);
         // if the method owner class is accessible from the visited class, just use that.
         if (isParentClassVisible(methodReference.owner, classAndInterfaceNode.getClassNode())) {
-            return methodReference.owner.name;
+            if (!classAndInterfaceNode.isInterface(methodReference.owner)) {
+                return methodReference.owner.name;
+            }
         }
 //        logger.verbose("Found an inaccessible methodReference %1$s", methodReference.method.name);
 
