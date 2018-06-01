@@ -41,7 +41,7 @@ Fix Resources
     <!--<string name="fix_text">Aha, Resources Bug Fix</string>-->
 ```
 
-Change the `TextView` in activity_main.xml and activity_second.xml to Button.
+Change the `TextView` in activity_main.xml and activity_second.xml to `Button`.
 
 7. ./gradlew :stark-sample:clean :stark-sample:starkGeneratePatchDebug
 8. adb push stark-sample/build/outputs/apk/debug/stark-sample-debug.patch /sdcard/Android/data/com.ximsfei.stark.app/fix.apk
