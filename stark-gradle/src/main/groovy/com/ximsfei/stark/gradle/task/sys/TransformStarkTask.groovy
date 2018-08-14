@@ -247,11 +247,11 @@ class TransformStarkTask extends SysTask<DefaultTask> {
     @Override
     protected DefaultTask getTask() {
         Set<Task> tasks = project.getTasksByName("transformClassesAndResourcesWithProguardFor"
-                + variant.buildType.name.capitalize(), false)
+                + variant.name.capitalize(), false)
         if (tasks.empty) {
             tasks = project.getTasksByName("transformClassesWith"
                     + StarkConstants.TRANSFORM_STARK_NAME.capitalize()
-                    + "For" + variant.buildType.name.capitalize(), false)
+                    + "For" + variant.name.capitalize(), false)
         }
         return tasks.first()
     }

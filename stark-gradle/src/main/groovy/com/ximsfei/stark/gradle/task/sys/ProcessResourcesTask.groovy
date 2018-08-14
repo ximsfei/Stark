@@ -246,7 +246,7 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
 
     @Override
     protected ProcessAndroidResources getTask() {
-        project.getTasksByName("process" + variant.buildType.name.capitalize() + "Resources", false).first()
+        project.getTasksByName("process" + variant.name.capitalize() + "Resources", false).first()
     }
 
     @Override

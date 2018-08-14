@@ -241,14 +241,14 @@ class StarkVariantScope {
             } else {
                 buildHash = UUID.randomUUID()
             }
-            Plog.q "${project.name} ${variant.buildType.name} build hash $buildHash"
+            Plog.q "${project.name} ${variant.name} build hash $buildHash"
         }
         buildHash
     }
 
     def getStarkBuildDir() {
         def starkDir = new File(project.getBuildDir(), StarkConstants.STARK_DIR)
-        def buildTypeDir = new File(starkDir, variant.buildType.name)
+        def buildTypeDir = new File(starkDir, variant.name)
         if (!buildTypeDir.exists()) {
             buildTypeDir.mkdirs()
         }
@@ -292,7 +292,7 @@ class StarkVariantScope {
         def appDir = new File(starkDir, variant.applicationId)
         def versionCodeDir = new File(appDir, String.valueOf(variant.versionCode))
         def backupDir = new File(versionCodeDir, StarkConstants.STARK_BACKUP_DIR)
-        def buildTypeDir = new File(backupDir, variant.buildType.name)
+        def buildTypeDir = new File(backupDir, variant.name)
         if (!buildTypeDir.exists()) {
             buildTypeDir.mkdirs()
         }
