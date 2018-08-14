@@ -7,7 +7,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.ximsfei:stark-gradle:0.0.3'
+        classpath 'com.ximsfei:stark-gradle:0.0.4'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -37,11 +37,18 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    flavorDimensions "stark"
+    productFlavors {
+        internal {
+            dimension "stark"
+        }
+    }
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 //    implementation project(':stark-core')
-    implementation 'com.ximsfei:stark-core:0.0.3'
+    implementation 'com.ximsfei:stark-core:0.0.4'
     implementation 'io.sigpipe:jbsdiff:' + rootProject.jbsdiffVersion
 }
