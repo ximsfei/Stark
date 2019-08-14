@@ -92,6 +92,12 @@ class Aapt {
         }
     }
 
+    List<String> dumpResourceEntries() {
+        File arscFile = new File(mAssetDir, FILE_ARSC)
+        def arscEditor = new ArscEditor(arscFile, mToolsRevision)
+        arscEditor.dumpResourceEntries()
+    }
+
     def writeSmallFlags(int flags, Set outUpdatedResources) {
         if (flags == 0) return false
 

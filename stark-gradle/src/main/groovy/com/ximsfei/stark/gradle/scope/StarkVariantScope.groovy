@@ -275,10 +275,6 @@ class StarkVariantScope {
         new File(getStarkBuildDir(), StarkConstants.STARK_BUILD_HASH_FILE)
     }
 
-    def getStarkBuildPublicTxtFile() {
-        new File(getStarkBuildDir(), StarkConstants.STARK_PUBLIC_TXT_FILE)
-    }
-
     def getStarkBuildApkFile() {
         new File(getStarkBuildDir(), StarkConstants.STARK_BUILD_APK_FILE)
     }
@@ -317,10 +313,6 @@ class StarkVariantScope {
 
     File getBackupHashFile() {
         new File(getBackupDir(), StarkConstants.STARK_BUILD_HASH_FILE)
-    }
-
-    File getBackupPublicTxt() {
-        new File(getBackupDir(), StarkConstants.STARK_PUBLIC_TXT_FILE)
     }
 
     def getBackupApkFile() {

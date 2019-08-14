@@ -218,7 +218,6 @@ public class StarkConstants {
     public static final String STARK_MONITOR_DIR = "monitor";
     public static final String STARK_MONITOR_CLASS = "monitor-class";
     public static final String STARK_BUILD_HASH_FILE = "build-hash";
-    public static final String STARK_PUBLIC_TXT_FILE = "public.txt";
     public static final String STARK_BUILD_APK_FILE = "stark.apk";
     public static final String STARK_BUILD_MAPPING_FILE = "mapping.txt";
 

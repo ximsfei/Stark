@@ -725,6 +725,33 @@ public class ArscEditor extends AssetEditor {
         return s
     }
 
+    def dumpResourceEntries() {
+        def entries = []
+        seek(0)
+        def t = readTable()
+        def pid = t.package.id << 24
+        def pidStr = "0x${Integer.toHexString(t.package.id)}"
+
+        def keyId = 0
+        t.typeList.specs.each { ts ->
+            if (ts.configs == null) return
+            def configCount = ts.configs.size()
+            if (configCount == 0) return
+            def entryCount = ts.entryCount
+            if (entryCount == 0) return
+            def type = getUtf8String(t.typeStringPool.strings[ts.id - 1])
+            println "    type ${ts.id - 1} configCount=$configCount entryCount=$entryCount"
+            for (int ei = 0; ei < entryCount; ei++) {
+                def id = Integer.toHexString(pid | (ts.id << 16) | ei)
+                def keyBuff = t.keyStringPool.strings[keyId]
+                def key = keyBuff == null ? 'null' : new String(keyBuff)
+                entries.add("int $type $key 0x$id")
+                keyId++
+            }
+        }
+        entries
+    }
+
     private def dumpTable() {
         seek(0)
         def t = readTable()

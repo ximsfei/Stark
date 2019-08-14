@@ -131,6 +131,17 @@ public final class SymbolParser {
         return es
     }
 
+    public static def getResourceEntriesByAapt(Aapt aapt) {
+        def es = [:]
+        List<String> entries = aapt.dumpResourceEntries()
+        entries.forEach { str ->
+            def entry = getResourceEntry(str)
+            if (entry == null) return
+            es.put("${entry.type}/${entry.key}", entry)
+        }
+        return es
+    }
+
     public static void collectResourceKeys(File file, String targetType, List excludes,
                                            List outEntries, List outStyleableKeys) {
         if (!file.exists()) return

@@ -259,31 +259,16 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
         collectResourcesFile()
 
         if (GlobalScope.isGeneratePatch) {
-            def publicTxtFile = starkScope.getBackupPublicTxt()
-            if (!publicTxtFile.exists() || publicTxtFile.getText() == "") {
-                throw new StarkException("To generate patch, public.txt not exists!")
+            def backupApkFile = starkScope.getBackupApkFile()
+            if (backupApkFile == null || !backupApkFile.exists()) {
+                throw new StarkException("To generate patch, backupApkFile not exists!")
             }
 
             def unzipApDir = AaptUtils.unzipApFile(project, apFile.parentFile, apFile, "ap_unzip")
-            fixResId(android, unzipApDir, publicTxtFile)
+            def unzipBackupApDir = AaptUtils.unzipApFile(project, apFile.parentFile, backupApkFile, "backupApk_unzip")
+            fixResId(android, unzipApDir, unzipBackupApDir)
             FileUtils.deleteDirectory(unzipApDir)
-        } else {
-            if (rTxtFile == null || !rTxtFile.exists()) {
-                Plog.q "rTxtFile $rTxtFile is not exists."
-                return
-            }
-            def publicTxtFile = starkScope.getStarkBuildPublicTxtFile()
-            if (!publicTxtFile.exists()) {
-                publicTxtFile.createNewFile()
-            }
-            def publicPw = new PrintWriter(publicTxtFile.newWriter(false))
-            rTxtFile.readLines().each { line ->
-                if (!line.startsWith("int[] styleable") && !line.startsWith("int styleable")) {
-                    publicPw.println(line)
-                }
-            }
-            publicPw.flush()
-            publicPw.close()
+            FileUtils.deleteDirectory(unzipBackupApDir)
         }
     }
 
@@ -319,13 +304,18 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
     /**
      * Hook aapt task to slice asset package and resolve library resource ids
      */
-    def fixResId(AppExtension android, File unzipApDir, File publicTxtFile) {
+    def fixResId(AppExtension android, File unzipApDir, File unzipBackupApkDir) {
         // public.txt
-        Plog.q "public text file: $publicTxtFile"
+        Plog.q "backup apk unzip dir: $unzipBackupApkDir"
+
+        def rev = android.buildToolsRevision
+
+        Aapt aapt = new Aapt(unzipApDir, rev)
+        Aapt backupAapt = new Aapt(unzipBackupApkDir, rev)
 
         // Modify assets
-        prepareSplit(rTxtFile, publicTxtFile)
-        def rev = android.buildToolsRevision
+        prepareSplit(aapt, backupAapt)
+
         def filteredResources = new HashSet()
         def updatedResources = new HashSet()
 
@@ -334,7 +324,6 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
         def libRefTable = [:]
         libRefTable.put(gPackageId, android.defaultConfig.applicationId)
 
-        Aapt aapt = new Aapt(unzipApDir, rev)
         if (gRetainedTypes != null && gRetainedTypes.size() > 0) {
             aapt.filterResources(gRetainedTypes, filteredResources)
             Plog.q "[${project.name}] split library res files..."
@@ -372,10 +361,7 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
     /**
      * Prepare retained resource types and resource id maps for package slicing
      */
-    private void prepareSplit(File rTxtFile, File publicTxtFile) {
-        def idsFile = rTxtFile
-        if (!idsFile.exists()) return
-
+    private void prepareSplit(Aapt aapt, Aapt backupAapt) {
         // Prepare id maps (bundle resource id -> library resource id)
         // Map to `lib.**` resources id first, and then the host one.
         def libEntries = [:]
@@ -384,8 +370,8 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
 //            libEntries += SymbolParser.getResourceEntries(hostSymbol)
 //        }
 
-        def publicEntries = SymbolParser.getResourceEntries(publicTxtFile)
-        def bundleEntries = SymbolParser.getResourceEntries(idsFile)
+        def publicEntries = SymbolParser.getResourceEntriesByAapt(backupAapt)
+        def bundleEntries = SymbolParser.getResourceEntriesByAapt(aapt)
         def staticIdMaps = [:]
         def staticIdStrMaps = [:]
         def retainedEntries = []
