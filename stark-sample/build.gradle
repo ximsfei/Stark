@@ -7,7 +7,7 @@ buildscript {
         jcenter()
     }
     dependencies {
-        classpath 'com.ximsfei:stark-gradle:0.0.4'
+        classpath 'com.ximsfei:stark-gradle:0.0.5'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -49,6 +49,6 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 //    implementation project(':stark-core')
-    implementation 'com.ximsfei:stark-core:0.0.4'
+    implementation 'com.ximsfei:stark-core:0.0.5'
     implementation 'io.sigpipe:jbsdiff:' + rootProject.jbsdiffVersion
 }
