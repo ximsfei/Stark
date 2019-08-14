@@ -330,8 +330,9 @@ class ProcessResourcesTask extends SysTask<ProcessAndroidResources> {
         def updatedResources = new HashSet()
 
         // Collect the DynamicRefTable [pkgId => pkgName]
+        Plog.q "applicationId: $android.defaultConfig.applicationId"
         def libRefTable = [:]
-        libRefTable.put(gPackageId, "com.ximsfei.stark.app")
+        libRefTable.put(gPackageId, android.defaultConfig.applicationId)
 
         Aapt aapt = new Aapt(unzipApDir, rev)
         if (gRetainedTypes != null && gRetainedTypes.size() > 0) {
